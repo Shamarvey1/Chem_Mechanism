@@ -6,18 +6,24 @@ const SYSTEM_PROMPT = `You are an expert organic chemistry tutor specializing in
 
 When given a chemical reaction:
 1. Identify the reaction type (SN2, SN1, E2, addition, elimination, etc.)
-2. List all reactants with atoms, bonds, and chemical roles
-3. List all products with atoms and bonds
-4. Explain the mechanism step by step using these action types only:
-   NUCLEOPHILE_ATTACK, BOND_BREAK, BOND_FORM, ELECTRON_PAIR_MOVE, PROTON_TRANSFER
+2. List all reactants (id, name, formula)
+3. List all products (id, name, formula)
+4. Explain the mechanism step by step.
 
-Atom ID rules:
-- Use C1, C2 for carbons; Br1 for bromine; O1 for oxygen; H1, H2, H3 for hydrogens
-- Preserve atom IDs consistently across reactants, steps, and products
-- Do not invent atoms that are not chemically present
+Mechanism action rules:
+- NUCLEOPHILE_ATTACK: targets must contain only "nucleophile_atom" and "electrophile_atom"
+- BOND_BREAK: targets must contain only "bond"
+- ELECTRON_PAIR_MOVE: targets must contain only "from_bond" and "to_atom"
+- BOND_FORM: targets must contain only "atom1", "atom2", and "order" (number)
+- PROTON_TRANSFER: targets must contain only "from_atom" and "to_atom"
 
-For CH3Br + OH- -> CH3OH + Br-, use:
-- C1 = carbon, Br1 = bromine, O1 = oxygen of OH-, H1/H2/H3 = methyl hydrogens, H4 = OH hydrogen`;
+Do NOT include irrelevant target fields in a step.
+
+For CH3Br + OH- -> CH3OH + Br-:
+- Step 1: NUCLEOPHILE_ATTACK (nucleophile_atom: "O1", electrophile_atom: "C1")
+- Step 2: BOND_BREAK (bond: "C1-Br1")
+- Step 3: ELECTRON_PAIR_MOVE (from_bond: "C1-Br1", to_atom: "Br1")
+- Step 4: BOND_FORM (atom1: "C1", atom2: "O1", order: 1)`;
 
 const MECHANISM_SCHEMA = {
   type: 'object',
@@ -39,39 +45,11 @@ const MECHANISM_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'name', 'formula', 'role', 'atoms', 'bonds'],
+        required: ['id', 'name', 'formula'],
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
           formula: { type: 'string' },
-          role: { type: 'string' },
-          atoms: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'element', 'charge'],
-              properties: {
-                id: { type: 'string' },
-                element: { type: 'string' },
-                charge: { type: ['string', 'null'] },
-              },
-            },
-          },
-          bonds: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'atom1', 'atom2', 'order'],
-              properties: {
-                id: { type: 'string' },
-                atom1: { type: 'string' },
-                atom2: { type: 'string' },
-                order: { type: 'number' },
-              },
-            },
-          },
         },
       },
     },
@@ -81,39 +59,11 @@ const MECHANISM_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['id', 'name', 'formula', 'role', 'atoms', 'bonds'],
+        required: ['id', 'name', 'formula'],
         properties: {
           id: { type: 'string' },
           name: { type: 'string' },
           formula: { type: 'string' },
-          role: { type: 'string' },
-          atoms: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'element', 'charge'],
-              properties: {
-                id: { type: 'string' },
-                element: { type: 'string' },
-                charge: { type: ['string', 'null'] },
-              },
-            },
-          },
-          bonds: {
-            type: 'array',
-            items: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['id', 'atom1', 'atom2', 'order'],
-              properties: {
-                id: { type: 'string' },
-                atom1: { type: 'string' },
-                atom2: { type: 'string' },
-                order: { type: 'number' },
-              },
-            },
-          },
         },
       },
     },
@@ -121,47 +71,103 @@ const MECHANISM_SCHEMA = {
     steps: {
       type: 'array',
       items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['step', 'action', 'targets', 'explanation'],
-        properties: {
-          step: { type: 'number' },
-          action: {
-            type: 'string',
-            enum: [
-              'NUCLEOPHILE_ATTACK',
-              'BOND_BREAK',
-              'BOND_FORM',
-              'ELECTRON_PAIR_MOVE',
-              'PROTON_TRANSFER',
-            ],
-          },
-          targets: {
+        anyOf: [
+          {
             type: 'object',
             additionalProperties: false,
-            required: [
-              'nucleophile_atom',
-              'electrophile_atom',
-              'bond',
-              'from_bond',
-              'to_atom',
-              'atom1',
-              'atom2',
-              'order',
-            ],
+            required: ['step', 'action', 'targets', 'explanation'],
             properties: {
-              nucleophile_atom: { type: ['string', 'null'] },
-              electrophile_atom: { type: ['string', 'null'] },
-              bond: { type: ['string', 'null'] },
-              from_bond: { type: ['string', 'null'] },
-              to_atom: { type: ['string', 'null'] },
-              atom1: { type: ['string', 'null'] },
-              atom2: { type: ['string', 'null'] },
-              order: { type: ['number', 'null'] },
+              step: { type: 'number' },
+              action: { type: 'string', enum: ['NUCLEOPHILE_ATTACK'] },
+              targets: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['nucleophile_atom', 'electrophile_atom'],
+                properties: {
+                  nucleophile_atom: { type: 'string' },
+                  electrophile_atom: { type: 'string' },
+                },
+              },
+              explanation: { type: 'string' },
             },
           },
-          explanation: { type: 'string' },
-        },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['step', 'action', 'targets', 'explanation'],
+            properties: {
+              step: { type: 'number' },
+              action: { type: 'string', enum: ['BOND_BREAK'] },
+              targets: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['bond'],
+                properties: {
+                  bond: { type: 'string' },
+                },
+              },
+              explanation: { type: 'string' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['step', 'action', 'targets', 'explanation'],
+            properties: {
+              step: { type: 'number' },
+              action: { type: 'string', enum: ['ELECTRON_PAIR_MOVE'] },
+              targets: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['from_bond', 'to_atom'],
+                properties: {
+                  from_bond: { type: 'string' },
+                  to_atom: { type: 'string' },
+                },
+              },
+              explanation: { type: 'string' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['step', 'action', 'targets', 'explanation'],
+            properties: {
+              step: { type: 'number' },
+              action: { type: 'string', enum: ['BOND_FORM'] },
+              targets: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['atom1', 'atom2', 'order'],
+                properties: {
+                  atom1: { type: 'string' },
+                  atom2: { type: 'string' },
+                  order: { type: 'number' },
+                },
+              },
+              explanation: { type: 'string' },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['step', 'action', 'targets', 'explanation'],
+            properties: {
+              step: { type: 'number' },
+              action: { type: 'string', enum: ['PROTON_TRANSFER'] },
+              targets: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['from_atom', 'to_atom'],
+                properties: {
+                  from_atom: { type: 'string' },
+                  to_atom: { type: 'string' },
+                },
+              },
+              explanation: { type: 'string' },
+            },
+          },
+        ],
       },
     },
   },
