@@ -1,6 +1,6 @@
 const { analyzeReaction } = require('../services/reactionService');
 
-const analyzeReactionHandler = (req, res, next) => {
+const analyzeReactionHandler = async (req, res, next) => {
   try {
     const { reaction } = req.body;
 
@@ -11,12 +11,11 @@ const analyzeReactionHandler = (req, res, next) => {
       });
     }
 
-    const result = analyzeReaction(reaction.trim());
+    const result = await analyzeReaction(reaction.trim());
 
     return res.status(200).json({
       success: true,
-      reaction: result.reaction,
-      message: result.message,
+      data: result,
     });
   } catch (err) {
     next(err);
