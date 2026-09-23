@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { analyzeReaction } from '../services/reactionService';
+import MoleculeVisualizer from '../components/MoleculeVisualizer';
 
 function Home() {
   const [reaction, setReaction] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [reactionData, setReactionData] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
@@ -16,17 +17,44 @@ function Home() {
     }
 
     setLoading(true);
-    setResult(null);
+    setReactionData(null);
+    setCurrentStep(0);
     setError(null);
 
     try {
-      const response = await analyzeReaction(reaction.trim());
-      setResult(response.data);
+      const response = await fetch('http://localhost:5001/api/reactions/analyze', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reaction: reaction.trim() }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to analyze reaction.');
+      }
+
+      setReactionData(data.data);
+      setCurrentStep(0);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
+  };
+
+  const steps = reactionData?.steps || [];
+  const activeStep = steps[currentStep] || steps[0];
+  const totalSteps = steps.length;
+
+  const formatAction = (action) => {
+    if (!action) return 'Nucleophile Attack';
+    return action
+      .split('_')
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   return (
@@ -63,23 +91,105 @@ function Home() {
           </div>
         )}
 
-        {result && (
+        {reactionData && (
           <div id="result-panel" className="result-panel">
+            <MoleculeVisualizer
+              reactionData={reactionData}
+              currentStep={currentStep}
+            />
+
+            {totalSteps > 0 && activeStep && (
+              <section className="result-section">
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                  marginBottom: '0.6rem'
+                }}>
+                  <h3 style={{
+                    fontSize: '1.15rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    margin: 0
+                  }}>
+                    Step {activeStep.step}: {formatAction(activeStep.action)}
+                  </h3>
+                  <span style={{
+                    fontSize: '0.85rem',
+                    fontWeight: 600,
+                    color: '#475569',
+                    backgroundColor: '#e2e8f0',
+                    padding: '0.2rem 0.75rem',
+                    borderRadius: '999px'
+                  }}>
+                    Step {currentStep + 1} of {totalSteps}
+                  </span>
+                </div>
+
+                <p style={{
+                  fontSize: '0.95rem',
+                  color: '#334155',
+                  lineHeight: 1.6,
+                  marginBottom: '1rem'
+                }}>
+                  {activeStep.explanation}
+                </p>
+
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                    disabled={currentStep === 0}
+                    style={{
+                      padding: '0.55rem 1.25rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: currentStep === 0 ? '#94a3b8' : '#1e293b',
+                      backgroundColor: currentStep === 0 ? '#f1f5f9' : '#ffffff',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '6px',
+                      cursor: currentStep === 0 ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1))}
+                    disabled={currentStep >= totalSteps - 1}
+                    style={{
+                      padding: '0.55rem 1.25rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      backgroundColor: currentStep >= totalSteps - 1 ? '#94a3b8' : '#2563eb',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: currentStep >= totalSteps - 1 ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Next
+                  </button>
+                </div>
+              </section>
+            )}
 
             <section className="result-section">
               <h2 className="section-title">Reaction</h2>
-              <p className="section-value">{result.reaction.input}</p>
-              <span className="badge">{result.reaction.type}</span>
+              <p className="section-value">{reactionData.reaction.input}</p>
+              <span className="badge">{reactionData.reaction.type}</span>
             </section>
 
             <section className="result-section">
               <h2 className="section-title">Reactants</h2>
               <div className="card-grid">
-                {result.reactants.map((r, i) => (
+                {reactionData.reactants.map((r, i) => (
                   <div key={i} className="chem-card">
                     <p className="chem-name">{r.name}</p>
                     <p className="chem-formula">{r.formula}</p>
-                    <span className="role-tag">{r.role}</span>
                   </div>
                 ))}
               </div>
@@ -88,7 +198,7 @@ function Home() {
             <section className="result-section">
               <h2 className="section-title">Products</h2>
               <div className="card-grid">
-                {result.products.map((p, i) => (
+                {reactionData.products.map((p, i) => (
                   <div key={i} className="chem-card">
                     <p className="chem-name">{p.name}</p>
                     <p className="chem-formula">{p.formula}</p>
@@ -100,9 +210,20 @@ function Home() {
             <section className="result-section">
               <h2 className="section-title">Mechanism Steps</h2>
               <div className="steps-list">
-                {result.steps.map((s) => (
-                  <div key={s.step} className="step-card">
-                    <div className="step-number">Step {s.step}</div>
+                {reactionData.steps.map((s, idx) => (
+                  <div
+                    key={s.step}
+                    className="step-card"
+                    style={{
+                      borderLeft: idx === currentStep ? '4px solid #2563eb' : '4px solid #cbd5e1',
+                      backgroundColor: idx === currentStep ? '#f8fafc' : '#ffffff',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setCurrentStep(idx)}
+                  >
+                    <div className="step-number" style={{ color: idx === currentStep ? '#2563eb' : '#64748b' }}>
+                      Step {s.step}
+                    </div>
                     <p className="step-action">{s.action}</p>
                     <p className="step-explanation">{s.explanation}</p>
                   </div>

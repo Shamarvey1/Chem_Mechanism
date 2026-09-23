@@ -1,4 +1,5 @@
 const OpenAI = require('openai');
+const { validateMechanism } = require('../services/mechanismValidator');
 
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 
@@ -221,6 +222,13 @@ const analyzeReaction = async (reaction) => {
   } catch (parseError) {
     throw new Error(
       `Model returned invalid JSON. Raw response was:\n${rawContent}`
+    );
+  }
+
+  const validation = validateMechanism(parsed);
+  if (!validation.valid) {
+    throw new Error(
+      `Mechanism validation failed: ${validation.errors.join('; ')}`
     );
   }
 
