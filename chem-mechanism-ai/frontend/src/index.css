@@ -101,15 +101,43 @@ body {
   white-space: nowrap;
 }
 
-.analyze-btn:hover {
+.analyze-btn:hover:not(:disabled) {
   background-color: #1d4ed8;
+}
+
+.analyze-btn:disabled,
+.reaction-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.response-box {
+  width: 100%;
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  text-align: left;
+  line-height: 1.7;
+}
+
+.error-box {
+  background-color: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+}
+
+.result-box {
+  background-color: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
 }
 
 @media (max-width: 600px) {
   .input-group {
     flex-direction: column;
   }
-  
+
   .home-container {
     padding: 1.5rem;
   }
