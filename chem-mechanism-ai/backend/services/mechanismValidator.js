@@ -1,9 +1,15 @@
 const ALLOWED_ACTIONS = new Set([
   'NUCLEOPHILE_ATTACK',
+  'ELECTROPHILE_ATTACK',
+  'BASE_ABSTRACTION',
   'BOND_BREAK',
   'BOND_FORM',
   'ELECTRON_PAIR_MOVE',
   'PROTON_TRANSFER',
+  'CHARGE_CHANGE',
+  'REARRANGEMENT',
+  'RESONANCE',
+  'OXIDATION_REDUCTION',
 ]);
 
 const validateMechanism = (mechanism) => {
@@ -40,23 +46,45 @@ const validateMechanism = (mechanism) => {
   }
 
   const knownAtomIds = new Set();
+  const knownBondIds = new Set();
   let hasAtomData = false;
+  let hasBondData = false;
 
-  const collectAtoms = (molecules) => {
-    for (const mol of molecules) {
-      if (mol && Array.isArray(mol.atoms)) {
-        for (const atom of mol.atoms) {
-          if (atom && typeof atom.id === 'string' && atom.id.trim()) {
-            knownAtomIds.add(atom.id.trim());
-            hasAtomData = true;
-          }
+  const collectMolecularData = (molecules) => {
+  for (const mol of molecules) {
+    if (!mol || typeof mol !== 'object') continue;
+
+    if (Array.isArray(mol.atoms)) {
+      for (const atom of mol.atoms) {
+        if (atom && typeof atom.id === 'string' && atom.id.trim()) {
+          knownAtomIds.add(atom.id.trim());
+          hasAtomData = true;
         }
       }
     }
-  };
 
-  collectAtoms(mechanism.reactants);
-  collectAtoms(mechanism.products);
+    if (Array.isArray(mol.bonds)) {
+      for (const bond of mol.bonds) {
+        if (!bond || typeof bond !== 'object') continue;
+
+        if (
+          typeof bond.id === 'string' &&
+          bond.id.trim() &&
+          typeof bond.atom1 === 'string' &&
+          typeof bond.atom2 === 'string'
+        ) {
+          knownBondIds.add(bond.id.trim());
+          knownBondIds.add(`${bond.atom1}-${bond.atom2}`);
+          knownBondIds.add(`${bond.atom2}-${bond.atom1}`);
+          hasBondData = true;
+        }
+      }
+    }
+  }
+};
+
+  collectMolecularData(mechanism.reactants);
+  collectMolecularData(mechanism.products);
 
   const checkAtomExists = (atomId, fieldName, stepIndex) => {
     if (hasAtomData && atomId) {
@@ -67,6 +95,17 @@ const validateMechanism = (mechanism) => {
       }
     }
   };
+  const checkBondExists = (bondId, fieldName, stepIndex) => {
+  if (hasBondData && bondId) {
+    const normalizedBondId = bondId.trim();
+
+    if (!knownBondIds.has(normalizedBondId)) {
+      errors.push(
+        `Step ${stepIndex + 1}: Referenced bond "${normalizedBondId}" in "${fieldName}" does not exist in molecule bond data.`
+      );
+    }
+  }
+};
 
   mechanism.steps.forEach((stepObj, index) => {
     const stepNumber = stepObj && typeof stepObj.step === 'number' ? stepObj.step : index + 1;
@@ -106,10 +145,34 @@ const validateMechanism = (mechanism) => {
         break;
       }
 
-      case 'BOND_BREAK': {
-        if (!targets.bond || typeof targets.bond !== 'string' || !targets.bond.trim()) {
-          errors.push(`Step ${stepNumber}: BOND_BREAK requires a valid bond identifier in "targets.bond".`);
+      case 'BASE_ABSTRACTION': {
+        if (!targets.base_atom || typeof targets.base_atom !== 'string') {
+          errors.push(`Step ${stepNumber}: BASE_ABSTRACTION requires "targets.base_atom".`);
+        } else {
+          checkAtomExists(targets.base_atom, 'base_atom', index);
         }
+
+        if (!targets.hydrogen_atom || typeof targets.hydrogen_atom !== 'string') {
+          errors.push(`Step ${stepNumber}: BASE_ABSTRACTION requires "targets.hydrogen_atom".`);
+        } else {
+          checkAtomExists(targets.hydrogen_atom, 'hydrogen_atom', index);
+        }
+        break;
+      }
+
+      case 'BOND_BREAK': {
+        if (
+          !targets.bond ||
+          typeof targets.bond !== 'string' ||
+          !targets.bond.trim()
+        ) {
+          errors.push(
+            `Step ${stepNumber}: BOND_BREAK requires a valid bond identifier in "targets.bond".`
+          );
+        } else {
+          checkBondExists(targets.bond, 'bond', index);
+        }
+
         break;
       }
 
@@ -139,34 +202,107 @@ const validateMechanism = (mechanism) => {
       }
 
       case 'ELECTRON_PAIR_MOVE': {
-        if (!targets.from_bond || typeof targets.from_bond !== 'string' || !targets.from_bond.trim()) {
-          errors.push(`Step ${stepNumber}: ELECTRON_PAIR_MOVE requires "targets.from_bond".`);
+        if (
+          !targets.from_bond ||
+          typeof targets.from_bond !== 'string' ||
+          !targets.from_bond.trim()
+        ) {
+          errors.push(
+            `Step ${stepNumber}: ELECTRON_PAIR_MOVE requires "targets.from_bond".`
+          );
+        } else {
+          checkBondExists(targets.from_bond, 'from_bond', index);
         }
 
-        if (!targets.to_atom || typeof targets.to_atom !== 'string' || !targets.to_atom.trim()) {
-          errors.push(`Step ${stepNumber}: ELECTRON_PAIR_MOVE requires "targets.to_atom".`);
+        if (
+          !targets.to_atom ||
+          typeof targets.to_atom !== 'string' ||
+          !targets.to_atom.trim()
+        ) {
+          errors.push(
+            `Step ${stepNumber}: ELECTRON_PAIR_MOVE requires "targets.to_atom".`
+          );
         } else {
           checkAtomExists(targets.to_atom, 'to_atom', index);
         }
+
         break;
       }
 
       case 'PROTON_TRANSFER': {
-        if (!targets.atom1 || typeof targets.atom1 !== 'string') {
-          errors.push(`Step ${stepNumber}: PROTON_TRANSFER requires "targets.atom1".`);
-        } else {
-          checkAtomExists(targets.atom1, 'atom1', index);
-        }
+        const hasExplicitHydrogen = typeof targets.hydrogen_atom === 'string' && targets.hydrogen_atom.trim();
+        const hasFromAtom = typeof targets.from_atom === 'string' && targets.from_atom.trim();
+        const hasToAtom = typeof targets.to_atom === 'string' && targets.to_atom.trim();
+        const hasAtom1 = typeof targets.atom1 === 'string' && targets.atom1.trim();
+        const hasAtom2 = typeof targets.atom2 === 'string' && targets.atom2.trim();
 
-        if (!targets.atom2 || typeof targets.atom2 !== 'string') {
-          errors.push(`Step ${stepNumber}: PROTON_TRANSFER requires "targets.atom2".`);
-        } else {
+        if (hasExplicitHydrogen && hasFromAtom && hasToAtom) {
+          checkAtomExists(targets.hydrogen_atom, 'hydrogen_atom', index);
+          checkAtomExists(targets.from_atom, 'from_atom', index);
+          checkAtomExists(targets.to_atom, 'to_atom', index);
+        } else if (hasAtom1 && hasAtom2) {
+          checkAtomExists(targets.atom1, 'atom1', index);
           checkAtomExists(targets.atom2, 'atom2', index);
+        } else {
+          errors.push(
+            `Step ${stepNumber}: PROTON_TRANSFER requires either "targets.hydrogen_atom", "targets.from_atom", "targets.to_atom" or "targets.atom1", "targets.atom2".`
+          );
         }
         break;
       }
 
       default:
+        
+        if (action === 'ELECTROPHILE_ATTACK') {
+          if (!targets.electrophile_atom) {
+            errors.push(`Step ${stepNumber}: ELECTROPHILE_ATTACK requires "targets.electrophile_atom".`);
+          } else { checkAtomExists(targets.electrophile_atom, 'electrophile_atom', index); }
+          if (!targets.pi_atom1) {
+            errors.push(`Step ${stepNumber}: ELECTROPHILE_ATTACK requires "targets.pi_atom1".`);
+          } else { checkAtomExists(targets.pi_atom1, 'pi_atom1', index); }
+          if (!targets.pi_atom2) {
+            errors.push(`Step ${stepNumber}: ELECTROPHILE_ATTACK requires "targets.pi_atom2".`);
+          } else { checkAtomExists(targets.pi_atom2, 'pi_atom2', index); }
+        }
+        
+        else if (action === 'CHARGE_CHANGE') {
+          if (!targets.atom) {
+            errors.push(`Step ${stepNumber}: CHARGE_CHANGE requires "targets.atom".`);
+          } else { checkAtomExists(targets.atom, 'atom', index); }
+          if (typeof targets.new_charge !== 'number') {
+            errors.push(`Step ${stepNumber}: CHARGE_CHANGE requires a numeric "targets.new_charge".`);
+          }
+        }
+        
+        else if (action === 'REARRANGEMENT') {
+          if (!targets.migrating_atom) {
+            errors.push(`Step ${stepNumber}: REARRANGEMENT requires "targets.migrating_atom".`);
+          } else { checkAtomExists(targets.migrating_atom, 'migrating_atom', index); }
+          if (!targets.from_atom) {
+            errors.push(`Step ${stepNumber}: REARRANGEMENT requires "targets.from_atom".`);
+          } else { checkAtomExists(targets.from_atom, 'from_atom', index); }
+          if (!targets.to_atom) {
+            errors.push(`Step ${stepNumber}: REARRANGEMENT requires "targets.to_atom".`);
+          } else { checkAtomExists(targets.to_atom, 'to_atom', index); }
+        }
+        
+        else if (action === 'RESONANCE') {
+          if (!targets.from_atom) {
+            errors.push(`Step ${stepNumber}: RESONANCE requires "targets.from_atom".`);
+          } else { checkAtomExists(targets.from_atom, 'from_atom', index); }
+          if (!targets.to_atom) {
+            errors.push(`Step ${stepNumber}: RESONANCE requires "targets.to_atom".`);
+          } else { checkAtomExists(targets.to_atom, 'to_atom', index); }
+        }
+        
+        else if (action === 'OXIDATION_REDUCTION') {
+          if (!targets.oxidized_atom) {
+            errors.push(`Step ${stepNumber}: OXIDATION_REDUCTION requires "targets.oxidized_atom".`);
+          } else { checkAtomExists(targets.oxidized_atom, 'oxidized_atom', index); }
+          if (!targets.reduced_atom) {
+            errors.push(`Step ${stepNumber}: OXIDATION_REDUCTION requires "targets.reduced_atom".`);
+          } else { checkAtomExists(targets.reduced_atom, 'reduced_atom', index); }
+        }
         break;
     }
   });

@@ -1,12 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import MoleculeVisualizer from '../components/MoleculeVisualizer';
+import MoleculeVisualizer3D from '../components/MoleculeVisualizer3D';
 
 function Home() {
   const [reaction, setReaction] = useState('');
   const [loading, setLoading] = useState(false);
   const [reactionData, setReactionData] = useState(null);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState(null);
+
+  const steps = reactionData?.steps || [];
+  const activeStep = steps[currentStep] || steps[0];
+  const totalSteps = steps.length;
+
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    if (currentStep >= totalSteps - 1) {
+      setIsPlaying(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCurrentStep((prev) => {
+        const next = prev + 1;
+        if (next >= totalSteps - 1) {
+          setIsPlaying(false);
+        }
+        return next;
+      });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying, currentStep, totalSteps]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -16,6 +43,7 @@ function Home() {
       return;
     }
 
+    setIsPlaying(false);
     setLoading(true);
     setReactionData(null);
     setCurrentStep(0);
@@ -45,9 +73,29 @@ function Home() {
     }
   };
 
-  const steps = reactionData?.steps || [];
-  const activeStep = steps[currentStep] || steps[0];
-  const totalSteps = steps.length;
+  const handlePrevious = () => {
+    setIsPlaying(false);
+    setCurrentStep((prev) => Math.max(0, prev - 1));
+  };
+
+  const handleNext = () => {
+    setIsPlaying(false);
+    setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1));
+  };
+
+  const handlePlay = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      setCurrentStep(0);
+      setIsPlaying(true);
+    }
+  };
+
+  const handleSelectStep = (idx) => {
+    setIsPlaying(false);
+    setCurrentStep(idx);
+  };
 
   const formatAction = (action) => {
     if (!action) return 'Nucleophile Attack';
@@ -98,6 +146,9 @@ function Home() {
               currentStep={currentStep}
             />
 
+            {}
+            <MoleculeVisualizer3D reactionData={reactionData} currentStep={currentStep} />
+
             {totalSteps > 0 && activeStep && (
               <section className="result-section">
                 <div style={{
@@ -137,10 +188,16 @@ function Home() {
                   {activeStep.explanation}
                 </p>
 
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  flexWrap: 'wrap'
+                }}>
                   <button
+                    id="prev-step-btn"
                     type="button"
-                    onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
+                    onClick={handlePrevious}
                     disabled={currentStep === 0}
                     style={{
                       padding: '0.55rem 1.25rem',
@@ -157,8 +214,44 @@ function Home() {
                   </button>
 
                   <button
+                    id="play-mechanism-btn"
                     type="button"
-                    onClick={() => setCurrentStep((prev) => Math.min(totalSteps - 1, prev + 1))}
+                    onClick={handlePlay}
+                    style={{
+                      padding: '0.55rem 1.25rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      backgroundColor: isPlaying ? '#ea580c' : currentStep >= totalSteps - 1 ? '#0284c7' : '#16a34a',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                      transition: 'background-color 0.2s ease'
+                    }}
+                  >
+                    {isPlaying ? (
+                      <>
+                        <span>⏸</span> Pause
+                      </>
+                    ) : currentStep >= totalSteps - 1 ? (
+                      <>
+                        <span>↻</span> Replay Mechanism
+                      </>
+                    ) : (
+                      <>
+                        <span>▶</span> Play Mechanism
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    id="next-step-btn"
+                    type="button"
+                    onClick={handleNext}
                     disabled={currentStep >= totalSteps - 1}
                     style={{
                       padding: '0.55rem 1.25rem',
@@ -219,7 +312,7 @@ function Home() {
                       backgroundColor: idx === currentStep ? '#f8fafc' : '#ffffff',
                       cursor: 'pointer'
                     }}
-                    onClick={() => setCurrentStep(idx)}
+                    onClick={() => handleSelectStep(idx)}
                   >
                     <div className="step-number" style={{ color: idx === currentStep ? '#2563eb' : '#64748b' }}>
                       Step {s.step}
