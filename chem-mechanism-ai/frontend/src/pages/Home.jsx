@@ -147,7 +147,7 @@ function Home() {
             />
 
             {}
-            <MoleculeVisualizer3D reactionData={reactionData} currentStep={currentStep} />
+            <MoleculeVisualizer3D reactionData={reactionData} currentStep={currentStep} onStepChange={setCurrentStep} />
 
             {totalSteps > 0 && activeStep && (
               <section className="result-section">
