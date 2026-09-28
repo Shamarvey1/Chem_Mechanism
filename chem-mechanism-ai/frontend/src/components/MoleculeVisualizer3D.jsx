@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState, useCallback, Suspense } from 'react';
+import { useMemo, useRef, useState, Suspense } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Line } from '@react-three/drei';
 import * as THREE from 'three';
-import { buildInitialGraph, applyMechanismSteps } from '../utils/moleculeGraph';
+import { buildInitialGraph, applyMechanismSteps, buildProductGraph } from '../utils/moleculeGraph';
 
 const LERP_SPEED  = 4.5;
 const ARROW_SPEED = 1.4;
@@ -118,44 +118,59 @@ function layoutMolecule(atoms, bonds, cx=0) {
   return pos;
 }
 
-function findConnectedComponents(atoms, bonds) {
-  const adj={};
-  atoms.forEach(a=>{ adj[a.id]=[]; });
-  bonds.forEach(b=>{
-    if(adj[b.atom1]!==undefined&&adj[b.atom2]!==undefined){
-      adj[b.atom1].push(b.atom2);
-      adj[b.atom2].push(b.atom1);
-    }
+function findSmartGroups(atoms, bonds, initialBonds) {
+  const parent = {};
+  atoms.forEach(a => { parent[a.id] = a.id; });
+  const find = id => parent[id] === id ? id : (parent[id] = find(parent[id]));
+  const union = (a, b) => { parent[find(a)] = find(b); };
+
+  bonds.forEach(b => { if(parent[b.atom1]!==undefined && parent[b.atom2]!==undefined) union(b.atom1, b.atom2); });
+
+  const isBondedInInitial = id => (initialBonds||[]).some(b => b.atom1===id || b.atom2===id);
+  const atomHasBond = new Set();
+  bonds.forEach(b => { atomHasBond.add(b.atom1); atomHasBond.add(b.atom2); });
+
+  const molGroups = {};
+  atoms.forEach(a => {
+    const mid = a.moleculeId || '__none__';
+    if (!molGroups[mid]) molGroups[mid] = [];
+    molGroups[mid].push(a.id);
   });
-  const visited=new Set();
-  const components=[];
-  atoms.forEach(atom=>{
-    if(visited.has(atom.id)) return;
-    const comp=[];
-    const queue=[atom.id];
-    visited.add(atom.id);
-    while(queue.length){
-      const id=queue.shift();
-      comp.push(id);
-      (adj[id]||[]).forEach(n=>{ if(!visited.has(n)){visited.add(n);queue.push(n);} });
-    }
-    components.push(comp);
+
+  Object.values(molGroups).forEach(ids => {
+    const bondedInMol = ids.filter(id => atomHasBond.has(id));
+    ids.forEach(id => {
+      if (atomHasBond.has(id)) return;
+      if (isBondedInInitial(id)) return;
+      if (bondedInMol.length > 0) {
+        union(id, bondedInMol[0]);
+      } else {
+        union(id, ids[0]);
+      }
+    });
   });
-  return components;
+
+  const groups = {};
+  atoms.forEach(a => {
+    const root = find(a.id);
+    if (!groups[root]) groups[root] = [];
+    groups[root].push(a.id);
+  });
+  return Object.values(groups);
 }
 
-function compute3DLayoutForStep(atoms, bonds) {
+function compute3DLayoutForStep(atoms, bonds, initialBonds) {
   if(!atoms.length) return {};
-  const components=findConnectedComponents(atoms,bonds);
-  const sorted=[...components].sort((a,b)=>b.length-a.length);
-  const SPACING=5.5;
-  const startX=-((sorted.length-1)*SPACING)/2;
-  const positions={};
-  sorted.forEach((compIds,idx)=>{
-    const cx=startX+idx*SPACING;
-    const compAtoms=atoms.filter(a=>compIds.includes(a.id));
-    const compBonds=bonds.filter(b=>compIds.includes(b.atom1)&&compIds.includes(b.atom2));
-    Object.assign(positions,layoutMolecule(compAtoms,compBonds,cx));
+  const groups = findSmartGroups(atoms, bonds, initialBonds);
+  const sorted = [...groups].sort((a,b) => b.length - a.length);
+  const SPACING = 5.5;
+  const startX = -((sorted.length-1)*SPACING)/2;
+  const positions = {};
+  sorted.forEach((groupIds, idx) => {
+    const cx = startX + idx * SPACING;
+    const gAtoms = atoms.filter(a => groupIds.includes(a.id));
+    const gBonds = bonds.filter(b => groupIds.includes(b.atom1) && groupIds.includes(b.atom2));
+    Object.assign(positions, layoutMolecule(gAtoms, gBonds, cx));
   });
   return positions;
 }
@@ -347,15 +362,26 @@ function CameraSetup({ atomCount }) {
   return null;
 }
 
-function Scene({ initialGraph, steps, currentStep, category }) {
-  const { atoms, bonds, activeStepData }=useMemo(
-    ()=>applyMechanismSteps(initialGraph,steps,currentStep),
-    [initialGraph,steps,currentStep]
+function Scene({ initialGraph, productGraph, steps, currentStep, category }) {
+  const isLastStep = steps.length > 0 && currentStep === steps.length - 1;
+
+  const { atoms, bonds, activeStepData } = useMemo(
+    () => applyMechanismSteps(initialGraph, steps, currentStep),
+    [initialGraph, steps, currentStep]
   );
-  const positions=useMemo(()=>compute3DLayoutForStep(atoms,bonds),[atoms,bonds]);
-  const activeIds=useMemo(()=>getActiveAtomIds(activeStepData),[activeStepData]);
-  const arrowParam=useMemo(()=>getArrowParams(activeStepData,positions),[activeStepData,positions]);
-  const totalAtoms=initialGraph.atoms.length;
+
+  const layoutAtoms  = isLastStep ? productGraph.atoms  : atoms;
+  const layoutBonds  = isLastStep ? productGraph.bonds  : bonds;
+  const layoutInitialBonds = isLastStep ? [] : initialGraph.bonds;
+
+  const positions = useMemo(
+    () => compute3DLayoutForStep(layoutAtoms, layoutBonds, layoutInitialBonds),
+    [layoutAtoms, layoutBonds, layoutInitialBonds]
+  );
+
+  const activeIds  = useMemo(() => getActiveAtomIds(activeStepData),  [activeStepData]);
+  const arrowParam = useMemo(() => getArrowParams(activeStepData, positions), [activeStepData, positions]);
+  const totalAtoms = initialGraph.atoms.length;
 
   return (
     <>
@@ -413,7 +439,8 @@ function MoleculeVisualizer3D({ reactionData, currentStep=0, onStepChange }) {
   const actionStyle  =ACTION_STYLE[activeStep?.action]||{bg:'#1e293b',text:'#94a3b8',label:activeStep?.action||''};
   const [locked,setLocked]=useState(false);
 
-  const initialGraph=useMemo(()=>buildInitialGraph(reactionData),[reactionData]);
+  const initialGraph  = useMemo(() => buildInitialGraph(reactionData),  [reactionData]);
+  const productGraph  = useMemo(() => buildProductGraph(reactionData),   [reactionData]);
   if(!initialGraph.atoms.length) return null;
 
   const goStep=(dir)=>{
@@ -493,6 +520,7 @@ function MoleculeVisualizer3D({ reactionData, currentStep=0, onStepChange }) {
             <Suspense fallback={null}>
               <Scene
                 initialGraph={initialGraph}
+                productGraph={productGraph}
                 steps={steps}
                 currentStep={currentStep}
                 category={category}

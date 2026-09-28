@@ -187,3 +187,36 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
 
   return { atoms, bonds, activeStepData };
 }
+
+export function buildProductGraph(reactionData) {
+  const atoms = [];
+  const bonds = [];
+  const molecules = [];
+  const products = reactionData?.products || [];
+
+  products.forEach((mol, molIdx) => {
+    const molId = mol.id || `P${molIdx + 1}`;
+    molecules.push({ id: molId, name: mol.name || '', formula: mol.formula || '' });
+    (mol.atoms || []).forEach(a => {
+      if (!atoms.some(ex => ex.id === a.id)) {
+        atoms.push({
+          id: a.id,
+          element: a.element || 'C',
+          charge: typeof a.charge === 'number' ? a.charge : 0,
+          moleculeId: molId,
+        });
+      }
+    });
+    (mol.bonds || []).forEach(b => {
+      const dup = bonds.some(ex =>
+        (ex.atom1 === b.atom1 && ex.atom2 === b.atom2) ||
+        (ex.atom1 === b.atom2 && ex.atom2 === b.atom1)
+      );
+      if (!dup) {
+        bonds.push({ id: b.id || `${b.atom1}-${b.atom2}`, atom1: b.atom1, atom2: b.atom2, order: b.order || 1 });
+      }
+    });
+  });
+
+  return { atoms, bonds, molecules };
+}
