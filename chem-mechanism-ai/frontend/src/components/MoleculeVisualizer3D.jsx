@@ -391,21 +391,15 @@ function CameraSetup({ atomCount }) {
   return null;
 }
 
-function Scene({ initialGraph, productGraph, steps, currentStep, category }) {
-  const isLastStep = steps.length > 0 && currentStep === steps.length - 1;
-
+function Scene({ initialGraph, steps, currentStep, category }) {
   const { atoms, bonds, activeStepData } = useMemo(
     () => applyMechanismSteps(initialGraph, steps, currentStep),
     [initialGraph, steps, currentStep]
   );
 
-  const layoutAtoms = isLastStep ? productGraph.atoms : atoms;
-  const layoutBonds = isLastStep ? productGraph.bonds : bonds;
-  const layoutInitialBonds = isLastStep ? [] : initialGraph.bonds;
-
   const positions = useMemo(
-    () => compute3DLayoutForStep(layoutAtoms, layoutBonds, layoutInitialBonds),
-    [layoutAtoms, layoutBonds, layoutInitialBonds]
+    () => compute3DLayoutForStep(atoms, bonds, initialGraph?.bonds || []),
+    [atoms, bonds, initialGraph]
   );
 
   const activeIds = useMemo(() => getActiveAtomIds(activeStepData), [activeStepData]);

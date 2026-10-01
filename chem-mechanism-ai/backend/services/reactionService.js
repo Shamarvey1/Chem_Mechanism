@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const { validateMechanism } = require('./mechanismValidator');
 const { classifyReaction } = require('./reactionClassifier');
 const { validateWithPubChem } = require('./pubchemValidator');
+const { generateJeeQuestions } = require('./jeeQuestionGenerator');
 
 const ORGANIC_PROMPT       = require('./prompts/organic');
 const NEUTRALIZATION_PROMPT = require('./prompts/neutralization');
@@ -249,6 +250,14 @@ const analyzeReaction = async (reaction) => {
   } catch (pubchemErr) {
     console.log(`[PubChem] Lookup failed (non-blocking): ${pubchemErr.message}`);
     parsed._pubchem = { verified: false, warnings: ['PubChem lookup unavailable'], enrichments: {} };
+  }
+
+  try {
+    parsed.jeeQuestions = await generateJeeQuestions(reaction, parsed);
+    console.log(`[JEE Generator] Generated ${parsed.jeeQuestions?.length || 0} questions for "${reaction}"`);
+  } catch (jeeErr) {
+    console.warn(`[JEE Generator] Error generating questions (non-blocking): ${jeeErr.message}`);
+    parsed.jeeQuestions = [];
   }
 
   return parsed;

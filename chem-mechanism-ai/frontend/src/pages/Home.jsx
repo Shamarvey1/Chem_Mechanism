@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import MoleculeVisualizer3D from '../components/MoleculeVisualizer3D';
+import JeeQuestionsSection from '../components/JeeQuestionsSection';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const EXAMPLE_REACTIONS = [
   'NaOH + HCl → NaCl + H2O',
@@ -180,11 +182,13 @@ function Home() {
 
         {reactionData && (
           <div>
-            <MoleculeVisualizer3D
-              reactionData={reactionData}
-              currentStep={currentStep}
-              onStepChange={setCurrentStep}
-            />
+            <ErrorBoundary>
+              <MoleculeVisualizer3D
+                reactionData={reactionData}
+                currentStep={currentStep}
+                onStepChange={setCurrentStep}
+              />
+            </ErrorBoundary>
 
             <div style={{
               display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem',
@@ -352,6 +356,11 @@ function Home() {
                 </div>
               )}
             </div>
+
+            <JeeQuestionsSection
+              questions={reactionData.jeeQuestions}
+              reactionInput={reactionData.reaction?.input || reaction}
+            />
           </div>
         )}
 
