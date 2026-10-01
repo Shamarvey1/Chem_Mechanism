@@ -192,7 +192,7 @@ const analyzeReaction = async (reaction) => {
 
   const systemPrompt = PROMPT_ROUTER[classification.category] || NEUTRALIZATION_PROMPT;
 
-  const userMessage = `Analyze this chemical reaction:\n\n${reaction}\n\nRemember: preserve atom IDs across reactants and products. Every mechanism target must reference valid atom or bond IDs from the reactants.`;
+  const userMessage = `Analyze this chemical reaction:\n\n${reaction}\n\nIf the input is a reaction name or description (e.g. "SN2 reaction", "combustion of methane", "esterification"), first identify the specific chemical equation with reactants and products, then generate the full mechanism.\n\nRemember: preserve atom IDs across reactants and products. Every mechanism target must reference valid atom or bond IDs from the reactants.`;
 
   let rawContent;
   try {

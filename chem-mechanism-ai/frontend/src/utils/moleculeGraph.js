@@ -50,41 +50,7 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
 
   const activeStepData = steps[currentStep] || null;
 
-  const findBondPredicate = (targetRef, t) => bond => {
-    if (!bond) return false;
-    const norm = typeof targetRef === 'string' ? targetRef.trim() : '';
-    if (norm && (bond.id === norm || bond.id?.trim() === norm)) return true;
-    if (norm && (
-      `${bond.atom1}-${bond.atom2}` === norm ||
-      `${bond.atom2}-${bond.atom1}` === norm
-    )) return true;
-    if (t?.atom1 && t?.atom2) {
-      if ((bond.atom1 === t.atom1 && bond.atom2 === t.atom2) ||
-          (bond.atom1 === t.atom2 && bond.atom2 === t.atom1)) return true;
-    }
-    if (t?.from_atom && t?.to_atom) {
-      if ((bond.atom1 === t.from_atom && bond.atom2 === t.to_atom) ||
-          (bond.atom1 === t.to_atom   && bond.atom2 === t.from_atom)) return true;
-    }
-    if (norm) {
-      const refBond = initialGraph.bonds.find(b => b.id === norm || b.id?.trim() === norm);
-      if (refBond) {
-        if ((bond.atom1 === refBond.atom1 && bond.atom2 === refBond.atom2) ||
-            (bond.atom1 === refBond.atom2 && bond.atom2 === refBond.atom1)) return true;
-      }
-    }
-    if (norm && norm.includes('-')) {
-      const [e1, e2] = norm.split('-').map(x => x.trim());
-      const a1 = initialGraph.atoms.find(a => a.id === bond.atom1);
-      const a2 = initialGraph.atoms.find(a => a.id === bond.atom2);
-      if (a1 && a2) {
-        if ((a1.element === e1 && a2.element === e2) ||
-            (a1.element === e2 && a2.element === e1)) return true;
-      }
-    }
-    return false;
-  };
-
+  try {
   for (let s = 0; s <= currentStep; s++) {
     const stepObj = steps[s];
     if (!stepObj) continue;
@@ -237,6 +203,9 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
+  }
+  } catch (err) {
+    console.warn('[moleculeGraph] Step application error (non-fatal):', err.message);
   }
 
   return { atoms, bonds, activeStepData };

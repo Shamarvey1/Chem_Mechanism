@@ -14,6 +14,7 @@ const getClient = () => {
 };
 
 const CLASSIFIER_PROMPT = `Classify the given chemical reaction into exactly one category.
+The input can be a balanced equation, a reaction name, or a description.
 Return ONLY valid JSON: {"category":"<CATEGORY>","explanation":"<one sentence>"}
 
 Categories and when to use them:
@@ -27,7 +28,7 @@ Categories and when to use them:
   ACID_BASE      — organic acid-base or Lewis acid-base (CH3COOH+NaOH, BF3+NH3, NH3+H2O)
   OTHER          — anything not in the above (coordination chemistry, biochemistry, etc.)
 
-Examples:
+Examples (equations):
   "NaOH + HCl -> NaCl + H2O"     → NEUTRALIZATION
   "CH3Br + OH- -> CH3OH + Br-"   → ORGANIC
   "Fe + CuSO4 -> FeSO4 + Cu"     → REDOX
@@ -36,7 +37,16 @@ Examples:
   "2H2 + O2 -> 2H2O"             → COMBINATION
   "2H2O2 -> 2H2O + O2"           → DECOMPOSITION
   "BF3 + NH3 -> F3B-NH3"         → ACID_BASE
-  "CH3COOH + NaOH -> CH3COONa + H2O" → ACID_BASE`;
+
+Examples (names/descriptions):
+  "SN2 reaction"                  → ORGANIC
+  "combustion of methane"         → COMBUSTION
+  "esterification"                → ORGANIC
+  "Grignard reaction"             → ORGANIC
+  "neutralization"                → NEUTRALIZATION
+  "rusting of iron"               → REDOX
+  "decomposition of hydrogen peroxide" → DECOMPOSITION
+  "Haber process"                 → COMBINATION`;
 
 const CLASSIFIER_SCHEMA = {
   type: 'object',
