@@ -158,6 +158,25 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                     {q.examType || 'JEE Question'}
                   </span>
 
+                  {q.examCitation && (
+                    <span style={{
+                      padding: '0.15rem 0.55rem',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      background: 'rgba(245, 158, 11, 0.18)',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      color: '#fcd34d',
+                      letterSpacing: '0.02em',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.3rem',
+                    }}>
+                      <span>🏛️</span>
+                      {q.examCitation}
+                    </span>
+                  )}
+
                   {q.topic && (
                     <span style={{
                       padding: '0.15rem 0.55rem',

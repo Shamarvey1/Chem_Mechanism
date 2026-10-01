@@ -1,0 +1,218 @@
+[
+  {
+    "id": "pyq-jee-neut-1",
+    "examCitation": "JEE Main 2023 (Jan 25 Shift 1)",
+    "examType": "JEE Main",
+    "tags": ["naoh", "hcl", "nacl", "h2o", "neutralization", "acid-base", "enthalpy", "strong acid"],
+    "topic": "Thermochemistry of Neutralization",
+    "difficulty": "Moderate",
+    "question": "Enthalpy of neutralization of HCl by NaOH is -57.3 kJ/mol. When 0.5 mol of strong monoprotic acid HCl is mixed with 0.5 mol of NaOH in aqueous solution, the heat evolved will be:",
+    "options": [
+      { "key": "A", "text": "57.3 kJ" },
+      { "key": "B", "text": "28.65 kJ" },
+      { "key": "C", "text": "114.6 kJ" },
+      { "key": "D", "text": "0 kJ because salt and water are neutral" }
+    ],
+    "correctAnswer": "B",
+    "explanation": "Enthalpy of neutralization is defined per mole of H⁺ neutralized by OH⁻ to form 1 mole of water: H⁺(aq) + OH⁻(aq) → H₂O(l) (ΔH = -57.3 kJ/mol). Here, 0.5 mol of HCl reacts with 0.5 mol of NaOH, producing 0.5 mol of H₂O. Heat evolved = 0.5 × 57.3 kJ = 28.65 kJ.",
+    "conceptTested": "Molar enthalpy of neutralization for strong acid and strong base"
+  },
+  {
+    "id": "pyq-jee-neut-2",
+    "examCitation": "JEE Advanced 2020 Paper 2",
+    "examType": "JEE Advanced",
+    "tags": ["naoh", "hcl", "neutralization", "conductivity", "titration", "conductometric"],
+    "topic": "Conductometric Titrations & Ionic Mobilities",
+    "difficulty": "Challenging",
+    "question": "A 100 mL aqueous solution of 0.1 M HCl is titrated against 0.1 M NaOH solution. The electrical conductance of the solution is measured throughout. The observed conductance:",
+    "options": [
+      { "key": "A", "text": "Increases continuously from the beginning until past the equivalence point" },
+      { "key": "B", "text": "Decreases initially to a minimum at the equivalence point, then rises upon adding excess NaOH" },
+      { "key": "C", "text": "Remains constant until the equivalence point, then decreases sharply" },
+      { "key": "D", "text": "Decreases continuously throughout the titration because water has negligible conductance" }
+    ],
+    "correctAnswer": "B",
+    "explanation": "Initially, the solution contains highly mobile H⁺ ions (molar ionic conductivity λ° ≈ 350 S·cm²/mol). As NaOH is added, H⁺ ions are consumed to form non-conducting water and replaced by Na⁺ ions (λ° ≈ 50 S·cm²/mol). Thus conductance drops steeply until the equivalence point (V-shaped minimum). Beyond equivalence, addition of excess OH⁻ ions (λ° ≈ 198 S·cm²/mol) causes conductance to rise rapidly again.",
+    "conceptTested": "Conductometric titration curves and abnormal ionic mobility of H⁺ via Grotthuss mechanism"
+  },
+  {
+    "id": "pyq-jee-neut-3",
+    "examCitation": "JEE Main 2021 (March Shift 2)",
+    "examType": "JEE Main",
+    "tags": ["naoh", "hcl", "neutralization", "ionic equilibrium", "salt hydrolysis", "ph"],
+    "topic": "Ionic Equilibrium & Hydrolysis",
+    "difficulty": "Moderate",
+    "question": "At 25°C, the pH of the solution obtained by mixing 50 mL of 0.2 M HCl and 50 mL of 0.2 M NaOH is:",
+    "options": [
+      { "key": "A", "text": "7.0 (Neutral)" },
+      { "key": "B", "text": "1.0 (Strongly acidic)" },
+      { "key": "C", "text": "13.0 (Strongly basic)" },
+      { "key": "D", "text": "0.0" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "Millimoles of HCl = 50 × 0.2 = 10 mmol. Millimoles of NaOH = 50 × 0.2 = 10 mmol. Exactly stoichiometric amounts react to form NaCl, a salt of strong acid (HCl) and strong base (NaOH). Neither Na⁺ nor Cl⁻ undergoes hydrolysis in water. Hence [H⁺] = [OH⁻] = 10⁻⁷ M at 25°C, giving pH = 7.0.",
+    "conceptTested": "Equivalence point pH and salt hydrolysis of strong acid-strong base salts"
+  },
+  {
+    "id": "pyq-jee-sn2-1",
+    "examCitation": "JEE Advanced 2022 Paper 1",
+    "examType": "JEE Advanced",
+    "tags": ["sn2", "ch3br", "ch3oh", "nucleophilic substitution", "walden", "stereochemistry", "inversion"],
+    "topic": "Stereochemistry of Bimolecular Nucleophilic Substitution",
+    "difficulty": "Challenging",
+    "question": "The reaction of optically active (2R)-2-bromobutane with aqueous NaOH proceeds predominantly by SN2 pathway. The stereochemical nature of the resulting 2-butanol product is:",
+    "options": [
+      { "key": "A", "text": "100% (2R)-2-butanol (complete retention of configuration)" },
+      { "key": "B", "text": "100% (2S)-2-butanol (complete inversion of configuration / Walden inversion)" },
+      { "key": "C", "text": "An equimolar racemic mixture of (2R) and (2S)-2-butanol" },
+      { "key": "D", "text": "Optically inactive due to internal compensation (meso form)" }
+    ],
+    "correctAnswer": "B",
+    "explanation": "In an SN2 mechanism, the attacking nucleophile (OH⁻) attacks the stereocenter strictly from the backside (180° opposite to the leaving group C-Br bond) through a trigonal bipyramidal transition state. This concerted displacement causes an umbrella-like flip of the remaining three substituents, yielding 100% Walden inversion from (2R) to (2S)-2-butanol.",
+    "conceptTested": "Walden inversion and backside attack in concerted SN2 reactions"
+  },
+  {
+    "id": "pyq-jee-sn2-2",
+    "examCitation": "JEE Main 2023 (April 8 Shift 1)",
+    "examType": "JEE Main",
+    "tags": ["sn2", "ch3br", "kinetics", "rate law", "nucleophilic substitution"],
+    "topic": "Kinetics & Order of SN2 Reactions",
+    "difficulty": "Moderate",
+    "question": "For the nucleophilic substitution CH₃Br + OH⁻ → CH₃OH + Br⁻, if the concentration of CH₃Br is tripled and the concentration of OH⁻ is doubled, the reaction rate will:",
+    "options": [
+      { "key": "A", "text": "Increase by a factor of 6" },
+      { "key": "B", "text": "Increase by a factor of 5" },
+      { "key": "C", "text": "Increase by a factor of 9" },
+      { "key": "D", "text": "Remain unchanged because it is a zero-order reaction" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "The reaction is bimolecular nucleophilic substitution (SN2) with experimental rate law: Rate = k [CH₃Br]¹ [OH⁻]¹. When [CH₃Br] is increased 3-fold and [OH⁻] is increased 2-fold: Rate' = k (3 [CH₃Br]) (2 [OH⁻]) = 6 × (k [CH₃Br] [OH⁻]) = 6 × Rate.",
+    "conceptTested": "Second-order kinetics and rate expression of SN2 mechanism"
+  },
+  {
+    "id": "pyq-jee-sn2-3",
+    "examCitation": "JEE Advanced 2019 Paper 1",
+    "examType": "JEE Advanced",
+    "tags": ["sn2", "solvent", "polar aprotic", "acetone", "dmf", "dmso", "finkelstein"],
+    "topic": "Solvent Effects on Nucleophile Basicity & Nucleophilicity",
+    "difficulty": "Advanced",
+    "question": "Which of the following solvents will maximize the rate of the SN2 reaction between 1-bromobutane and sodium cyanide (NaCN)?",
+    "options": [
+      { "key": "A", "text": "H₂O (Water)" },
+      { "key": "B", "text": "CH₃OH (Methanol)" },
+      { "key": "C", "text": "DMSO (Dimethyl sulfoxide)" },
+      { "key": "D", "text": "CH₃COOH (Acetic acid)" }
+    ],
+    "correctAnswer": "C",
+    "explanation": "Polar protic solvents (H₂O, CH₃OH, CH₃COOH) have acidic hydrogens that strongly solvate the nucleophile (CN⁻) through hydrogen-bonding 'solvent cages', severely reducing its nucleophilicity. In contrast, DMSO is a polar aprotic solvent: it readily solvates Na⁺ cations while leaving the CN⁻ anion 'naked' and unsolvated, tremendously accelerating the SN2 rate.",
+    "conceptTested": "Polar aprotic solvents and naked nucleophile activation in SN2"
+  },
+  {
+    "id": "pyq-jee-redox-1",
+    "examCitation": "JEE Main 2022 (June 28 Shift 2)",
+    "examType": "JEE Main",
+    "tags": ["fe", "cuso4", "feso4", "cu", "redox", "single displacement", "electrochemical series"],
+    "topic": "Standard Reduction Potentials & Spontaneity",
+    "difficulty": "Moderate",
+    "question": "Given standard reduction potentials: E°(Fe²⁺/Fe) = -0.44 V and E°(Cu²⁺/Cu) = +0.34 V. When iron filings are added to aqueous CuSO₄ solution, which statement is correct?",
+    "options": [
+      { "key": "A", "text": "Fe displaces Cu because E°cell is positive (+0.78 V), making ΔG° negative" },
+      { "key": "B", "text": "Cu displaces Fe because Cu has a positive reduction potential" },
+      { "key": "C", "text": "No reaction occurs because sulfate ions passivate the iron surface" },
+      { "key": "D", "text": "Both metals dissolve completely as Fe³⁺ and Cu⁺" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "E°cell = E°cathode (reduction of Cu²⁺) - E°anode (oxidation of Fe) = +0.34 V - (-0.44 V) = +0.78 V. Since E°cell > 0, ΔG° = -nFE°cell < 0, the single displacement reaction Fe(s) + Cu²⁺(aq) → Fe²⁺(aq) + Cu(s) is thermodynamically spontaneous. Metallic copper deposits out while iron dissolves as green Fe²⁺ ions.",
+    "conceptTested": "Electrochemical series, cell EMF, and spontaneity of redox displacement"
+  },
+  {
+    "id": "pyq-jee-redox-2",
+    "examCitation": "JEE Advanced 2021 Paper 2",
+    "examType": "JEE Advanced",
+    "tags": ["fe", "cuso4", "redox", "equivalent weight", "oxidation state"],
+    "topic": "Equivalent Concept in Redox Reactions",
+    "difficulty": "Challenging",
+    "question": "In the reaction Fe + CuSO₄ → FeSO₄ + Cu, the equivalent weight of iron (Fe) (atomic weight = M) in this reaction is:",
+    "options": [
+      { "key": "A", "text": "M / 1" },
+      { "key": "B", "text": "M / 2" },
+      { "key": "C", "text": "M / 3" },
+      { "key": "D", "text": "M / 0.5" }
+    ],
+    "correctAnswer": "B",
+    "explanation": "In this reaction, Fe oxidizes from oxidation state 0 to +2 in FeSO₄: Fe → Fe²⁺ + 2e⁻. The n-factor (valency factor) of Fe is the number of electrons transferred per atom of iron, which is 2. Equivalent weight = Molar Mass / n-factor = M / 2.",
+    "conceptTested": "n-factor calculation and equivalent weight in redox processes"
+  },
+  {
+    "id": "pyq-jee-comb-1",
+    "examCitation": "JEE Main 2021 (Feb 24 Shift 1)",
+    "examType": "JEE Main",
+    "tags": ["methane", "ch4", "combustion", "o2", "co2", "h2o", "thermodynamics", "delta h"],
+    "topic": "Combustion of Hydrocarbons & Hess Law",
+    "difficulty": "Moderate",
+    "question": "For the complete combustion of 1 mole of methane at 298 K: CH₄(g) + 2O₂(g) → CO₂(g) + 2H₂O(l), what is the relationship between ΔH and ΔU for this reaction?",
+    "options": [
+      { "key": "A", "text": "ΔH = ΔU - 2RT" },
+      { "key": "B", "text": "ΔH = ΔU + 2RT" },
+      { "key": "C", "text": "ΔH = ΔU" },
+      { "key": "D", "text": "ΔH = ΔU - RT" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "For any chemical reaction, ΔH = ΔU + Δng·RT, where Δng is the change in moles of gaseous species: Δng = (moles of gaseous products) - (moles of gaseous reactants). Here, CO₂ is a gas (1 mol), but H₂O is in liquid state at 298 K (0 mol gas). Gaseous reactants: 1 mol CH₄ + 2 mol O₂ = 3 mol gas. Thus, Δng = 1 - (1 + 2) = -2. Therefore, ΔH = ΔU - 2RT.",
+    "conceptTested": "First law of thermodynamics, Δng determination, and ΔH vs ΔU relationship"
+  },
+  {
+    "id": "pyq-jee-decomp-1",
+    "examCitation": "JEE Main 2022 (July 26 Shift 1)",
+    "examType": "JEE Main",
+    "tags": ["h2o2", "decomposition", "disproportionation", "redox", "hydrogen peroxide"],
+    "topic": "Disproportionation & Kinetics of Decomposition",
+    "difficulty": "Moderate",
+    "question": "The decomposition of hydrogen peroxide, 2H₂O₂(aq) → 2H₂O(l) + O₂(g), is a classic example of:",
+    "options": [
+      { "key": "A", "text": "A disproportionation redox reaction where oxygen in oxidation state -1 is both oxidized to 0 (O₂) and reduced to -2 (H₂O)" },
+      { "key": "B", "text": "A simple acid-base neutralization where H⁺ is neutralized" },
+      { "key": "C", "text": "A synproportionation reaction" },
+      { "key": "D", "text": "A thermal decomposition where hydrogen is oxidized to water" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "In H₂O₂, the oxidation state of each oxygen atom is -1. In the product H₂O, oxygen has oxidation state -2 (reduction: -1 → -2). In the product O₂, oxygen has oxidation state 0 (oxidation: -1 → 0). Since the same element (oxygen) simultaneously undergoes oxidation and reduction, it is an auto-redox or disproportionation reaction.",
+    "conceptTested": "Disproportionation redox reactions and peroxide oxidation states"
+  },
+  {
+    "id": "pyq-jee-precip-1",
+    "examCitation": "JEE Advanced 2021 Paper 1",
+    "examType": "JEE Advanced",
+    "tags": ["precipitation", "agno3", "nacl", "agcl", "solubility product", "ksp"],
+    "topic": "Solubility Product (Ksp) & Precipitation Criterion",
+    "difficulty": "Challenging",
+    "question": "Equal volumes of 0.002 M AgNO₃ and 0.002 M NaCl are mixed together at 25°C. Given Ksp(AgCl) = 1.8 × 10⁻¹⁰. Which statement is correct regarding precipitation?",
+    "options": [
+      { "key": "A", "text": "AgCl precipitates immediately because the ionic product Qsp (1.0 × 10⁻⁶) exceeds Ksp" },
+      { "key": "B", "text": "No precipitate forms because Qsp is smaller than Ksp" },
+      { "key": "C", "text": "AgCl dissolves completely because NaNO₃ acts as a complexing agent" },
+      { "key": "D", "text": "Precipitation only occurs upon boiling the solution" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "Upon mixing equal volumes, the concentration of each ion is halved: [Ag⁺] = 0.002 / 2 = 1.0 × 10⁻³ M, and [Cl⁻] = 0.002 / 2 = 1.0 × 10⁻³ M. The ionic quotient Qsp = [Ag⁺][Cl⁻] = (1.0 × 10⁻³) × (1.0 × 10⁻³) = 1.0 × 10⁻⁶. Since Qsp (1.0 × 10⁻⁶) >> Ksp (1.8 × 10⁻¹⁰), the solution is supersaturated and a white curdy precipitate of AgCl forms instantaneously.",
+    "conceptTested": "Ionic product (Qsp) vs solubility product (Ksp) condition for precipitation"
+  },
+  {
+    "id": "pyq-jee-ester-1",
+    "examCitation": "JEE Advanced 2018 Paper 2",
+    "examType": "JEE Advanced",
+    "tags": ["esterification", "ch3cooh", "c2h5oh", "fischer", "ch3cooc2h5", "isotopic"],
+    "topic": "Mechanism of Acid-Catalyzed Esterification",
+    "difficulty": "Advanced",
+    "question": "In the Fischer esterification of acetic acid with oxygen-18 labeled ethanol (CH₃CH₂¹⁸OH) in the presence of concentrated H₂SO₄, the ¹⁸O label is detected exclusively in:",
+    "options": [
+      { "key": "A", "text": "The ester (ethyl acetate)" },
+      { "key": "B", "text": "The water (H₂¹⁸O) formed as byproduct" },
+      { "key": "C", "text": "Equally distributed between the ester and water" },
+      { "key": "D", "text": "Sulfuric acid as ethyl hydrogen sulfate" }
+    ],
+    "correctAnswer": "A",
+    "explanation": "The mechanism proceeds via nucleophilic acyl substitution: Protonation of the carbonyl oxygen of CH₃COOH makes the carbonyl carbon electrophilic. The alcohol CH₃CH₂¹⁸OH attacks as a nucleophile to give a tetrahedral intermediate. The -OH group of the carboxylic acid is protonated into -OH₂⁺ (a good leaving group) and departs as unlabelled H₂O. Therefore, the ¹⁸O of the alcohol remains intact in the ester linkage (CH₃-CO-¹⁸O-CH₂CH₃).",
+    "conceptTested": "Isotopic tracing and tetrahedral intermediate in nucleophilic acyl substitution"
+  }
+]
