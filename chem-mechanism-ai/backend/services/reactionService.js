@@ -1,6 +1,7 @@
 const OpenAI = require('openai');
 const { validateMechanism } = require('./mechanismValidator');
 const { classifyReaction } = require('./reactionClassifier');
+const { validateWithPubChem } = require('./pubchemValidator');
 
 const ORGANIC_PROMPT       = require('./prompts/organic');
 const NEUTRALIZATION_PROMPT = require('./prompts/neutralization');
@@ -230,6 +231,24 @@ const analyzeReaction = async (reaction) => {
   const validation = validateMechanism(parsed);
   if (!validation.valid) {
     throw new Error(`Mechanism validation failed: ${validation.errors.join('; ')}`);
+  }
+
+  try {
+    const pubchemResult = await validateWithPubChem(parsed);
+    parsed._pubchem = {
+      verified: pubchemResult.warnings.length === 0,
+      warnings: pubchemResult.warnings,
+      enrichments: pubchemResult.enrichments,
+    };
+    if (pubchemResult.warnings.length > 0) {
+      console.log(`[PubChem] Warnings for "${reaction}":`);
+      pubchemResult.warnings.forEach(w => console.log(`  ⚠ ${w}`));
+    } else {
+      console.log(`[PubChem] ✓ All molecules verified for "${reaction}"`);
+    }
+  } catch (pubchemErr) {
+    console.log(`[PubChem] Lookup failed (non-blocking): ${pubchemErr.message}`);
+    parsed._pubchem = { verified: false, warnings: ['PubChem lookup unavailable'], enrichments: {} };
   }
 
   return parsed;

@@ -274,6 +274,36 @@ function Home() {
               <h2 className="section-title">Reaction</h2>
               <p className="section-value">{reactionData.reaction.input}</p>
               <span className="badge">{reactionData.reaction.type}</span>
+              {reactionData._pubchem && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  {reactionData._pubchem.verified ? (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                      fontSize: '0.82rem', fontWeight: 600, color: '#059669',
+                      backgroundColor: '#d1fae5', padding: '0.3rem 0.85rem',
+                      borderRadius: '6px', border: '1px solid #a7f3d0'
+                    }}>
+                      ✓ PubChem Verified — All molecules match known data
+                    </span>
+                  ) : (
+                    <div style={{
+                      backgroundColor: '#fffbeb', border: '1px solid #fde68a',
+                      borderRadius: '6px', padding: '0.6rem 0.85rem'
+                    }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#b45309' }}>
+                        ⚠ PubChem Warnings:
+                      </span>
+                      <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1.2rem', listStyle: 'disc' }}>
+                        {(reactionData._pubchem.warnings || []).map((w, i) => (
+                          <li key={i} style={{ fontSize: '0.78rem', color: '#92400e', lineHeight: 1.5 }}>
+                            {w}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             <section className="result-section">

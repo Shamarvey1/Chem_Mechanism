@@ -4,9 +4,9 @@ import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
 import { buildInitialGraph, applyMechanismSteps, buildProductGraph } from '../utils/moleculeGraph';
 
-const LERP_SPEED = 4.5;
-const ARROW_SPEED = 1.4;
-const ANIM_MS = 700;
+const LERP_SPEED  = 1.8;
+const ARROW_SPEED = 0.6;
+const ANIM_MS     = 1800;
 
 const ELEMENT_CONFIG = {
   H: { color: '#d8d8d8', emissive: '#444444', radius: 0.28 },
@@ -481,6 +481,7 @@ function MoleculeVisualizer3D({ reactionData, currentStep = 0, onStepChange }) {
   };
 
   const fx = getCategoryFx(category);
+  const pubchem = reactionData?._pubchem || null;
 
   return (
     <div style={{ width: '100%', marginTop: '1.5rem', fontFamily: 'Inter,system-ui,sans-serif' }}>
@@ -502,6 +503,18 @@ function MoleculeVisualizer3D({ reactionData, currentStep = 0, onStepChange }) {
                 border: `1px solid ${fx.color}`, letterSpacing: '0.06em'
               }}>
                 {category}
+              </span>
+            )}
+            {pubchem && (
+              <span title={pubchem.verified ? 'All molecules verified by PubChem' : pubchem.warnings?.join('\n')} style={{
+                fontSize: '0.62rem', fontWeight: 700,
+                color: pubchem.verified ? '#34d399' : '#fbbf24',
+                background: pubchem.verified ? '#052e16' : '#451a03',
+                padding: '0.1rem 0.45rem', borderRadius: '999px',
+                border: `1px solid ${pubchem.verified ? '#34d399' : '#fbbf24'}`,
+                cursor: 'help', letterSpacing: '0.04em'
+              }}>
+                {pubchem.verified ? '✓ PubChem Verified' : '⚠ PubChem Warning'}
               </span>
             )}
           </div>
