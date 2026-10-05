@@ -3,7 +3,6 @@ export function buildInitialGraph(reactionData) {
   const bonds = [];
   const molecules = [];
   const reactants = reactionData?.reactants || [];
-
   reactants.forEach((mol, molIdx) => {
     const molAtoms = mol.atoms || [];
     const molBonds = mol.bonds || [];
@@ -40,27 +39,21 @@ export function buildInitialGraph(reactionData) {
       }
     });
   });
-
   return { atoms, bonds, molecules };
 }
-
 export function applyMechanismSteps(initialGraph, steps, currentStep) {
   const atoms = initialGraph.atoms.map(a => ({ ...a }));
   let bonds   = initialGraph.bonds.map(b => ({ ...b }));
-
   const activeStepData = steps[currentStep] || null;
-
   try {
   for (let s = 0; s <= currentStep; s++) {
     const stepObj = steps[s];
     if (!stepObj) continue;
     const { action, targets } = stepObj;
     const isCurrent = s === currentStep;
-
     const hasBond = (a1, a2) => bonds.some(b =>
       (b.atom1 === a1 && b.atom2 === a2) || (b.atom1 === a2 && b.atom2 === a1)
     );
-
     const matchBondRef = (ref) => (b) => {
       if (!b || !ref) return false;
       const norm = typeof ref === 'string' ? ref.trim() : '';
@@ -78,14 +71,12 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
       }
       return false;
     };
-
     if (action === 'BOND_BREAK') {
       const ref = targets?.bond || targets?.from_bond || targets?.bond_id || targets?.bond_broken;
       const pred = matchBondRef(ref);
       if (isCurrent) bonds = bonds.map(b => pred(b) ? { ...b, status: 'breaking' } : b);
       else           bonds = bonds.filter(b => !pred(b));
     }
-
     else if (action === 'BOND_FORM') {
       const { atom1, atom2, order = 1 } = targets || {};
       if (atom1 && atom2) {
@@ -98,11 +89,8 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         else bonds.push({ id: `${atom1}-${atom2}`, atom1, atom2, order, status: newStatus });
       }
     }
-
     else if (action === 'NUCLEOPHILE_ATTACK' || action === 'RESONANCE') {
-      // Arrow-only — actual bond changes come from subsequent BOND_FORM / BOND_BREAK steps
     }
-
     else if (action === 'BASE_ABSTRACTION') {
       const { base_atom, hydrogen_atom: H } = targets || {};
       if (!H) continue;
@@ -120,7 +108,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
           bonds.push({ id: `${base_atom}-${H}`, atom1: base_atom, atom2: H, order: 1 });
       }
     }
-
     else if (action === 'PROTON_TRANSFER') {
       const { hydrogen_atom: H, from_atom, to_atom } = targets || {};
       if (!H) continue;
@@ -142,7 +129,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
           bonds.push({ id: `${to_atom}-${H}`, atom1: to_atom, atom2: H, order: 1 });
       }
     }
-
     else if (action === 'ELECTRON_PAIR_MOVE') {
       const ref = targets?.from_bond || targets?.bond;
       if (!ref) continue;
@@ -150,7 +136,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
       if (isCurrent) bonds = bonds.map(b => pred(b) ? { ...b, status: 'breaking' } : b);
       else           bonds = bonds.filter(b => !pred(b));
     }
-
     else if (action === 'ELECTROPHILE_ATTACK') {
       const { pi_atom1, pi_atom2 } = targets || {};
       if (pi_atom1 && pi_atom2) {
@@ -161,7 +146,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         else bonds = bonds.map(b => pred(b) && b.order >= 2 ? { ...b, order: b.order - 1, status: undefined } : b);
       }
     }
-
     else if (action === 'CHARGE_CHANGE') {
       const { atom: atomId, new_charge } = targets || {};
       if (atomId && typeof new_charge === 'number') {
@@ -169,7 +153,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         if (a) a.charge = new_charge;
       }
     }
-
     else if (action === 'REARRANGEMENT') {
       const { migrating_atom, from_atom, to_atom } = targets || {};
       if (migrating_atom && from_atom && to_atom) {
@@ -187,7 +170,6 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
-
     else if (action === 'OXIDATION_REDUCTION') {
       if (!isCurrent) {
         const { oxidized_atom, reduced_atom } = targets || {};
@@ -207,17 +189,13 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
   } catch (err) {
     console.warn('[moleculeGraph] Step application error (non-fatal):', err.message);
   }
-
   return { atoms, bonds, activeStepData };
 }
-
-
 export function buildProductGraph(reactionData) {
   const atoms = [];
   const bonds = [];
   const molecules = [];
   const products = reactionData?.products || [];
-
   products.forEach((mol, molIdx) => {
     const molId = mol.id || `P${molIdx + 1}`;
     molecules.push({ id: molId, name: mol.name || '', formula: mol.formula || '' });
@@ -241,6 +219,5 @@ export function buildProductGraph(reactionData) {
       }
     });
   });
-
   return { atoms, bonds, molecules };
 }

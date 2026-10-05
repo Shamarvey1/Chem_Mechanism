@@ -1,7 +1,5 @@
 const PUBCHEM_BASE = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug';
-
 const FORMULA_CACHE = new Map();
-
 async function fetchWithTimeout(url, timeoutMs = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -12,11 +10,9 @@ async function fetchWithTimeout(url, timeoutMs = 5000) {
     clearTimeout(timer);
   }
 }
-
 async function lookupFormula(name) {
   const key = name.toLowerCase().trim();
   if (FORMULA_CACHE.has(key)) return FORMULA_CACHE.get(key);
-
   try {
     const url = `${PUBCHEM_BASE}/compound/name/${encodeURIComponent(key)}/property/MolecularFormula,MolecularWeight,Charge/JSON`;
     const res = await fetchWithTimeout(url);
@@ -42,7 +38,6 @@ async function lookupFormula(name) {
     return null;
   }
 }
-
 function parseFormulaToAtomCounts(formula) {
   if (!formula) return {};
   const counts = {};
@@ -56,7 +51,6 @@ function parseFormulaToAtomCounts(formula) {
   }
   return counts;
 }
-
 function countAtomsInMolecule(mol) {
   const counts = {};
   (mol.atoms || []).forEach(a => {
@@ -65,7 +59,6 @@ function countAtomsInMolecule(mol) {
   });
   return counts;
 }
-
 function compareAtomCounts(aiCounts, pubchemCounts) {
   const errors = [];
   const allElements = new Set([...Object.keys(aiCounts), ...Object.keys(pubchemCounts)]);
@@ -78,20 +71,16 @@ function compareAtomCounts(aiCounts, pubchemCounts) {
   }
   return errors;
 }
-
 async function validateWithPubChem(mechanism) {
   const warnings = [];
   const enrichments = {};
-
   const allMolecules = [
     ...(mechanism.reactants || []).map(m => ({ ...m, role: 'reactant' })),
     ...(mechanism.products  || []).map(m => ({ ...m, role: 'product' })),
   ];
-
   const lookupPromises = allMolecules.map(async (mol) => {
     const name = mol.name || mol.formula || '';
     if (!name) return;
-
     const pubchem = await lookupFormula(name);
     if (!pubchem) {
       if (mol.formula) {
@@ -105,19 +94,15 @@ async function validateWithPubChem(mechanism) {
     }
     return { mol, pubchem };
   });
-
   const results = await Promise.all(lookupPromises);
-
   for (const result of results) {
     if (!result) continue;
     const { mol, pubchem } = result;
-
     if (pubchem.formula) {
       enrichments[mol.id] = {
         verifiedFormula: pubchem.formula,
         molecularWeight: pubchem.weight,
       };
-
       const aiCounts = countAtomsInMolecule(mol);
       const pcCounts = parseFormulaToAtomCounts(pubchem.formula);
       const atomErrors = compareAtomCounts(aiCounts, pcCounts);
@@ -128,29 +113,24 @@ async function validateWithPubChem(mechanism) {
       }
     }
   }
-
   const reactantAtoms = {};
   const productAtoms = {};
-
   (mechanism.reactants || []).forEach(mol => {
     const counts = countAtomsInMolecule(mol);
     for (const [el, n] of Object.entries(counts)) {
       reactantAtoms[el] = (reactantAtoms[el] || 0) + n;
     }
   });
-
   (mechanism.products || []).forEach(mol => {
     const counts = countAtomsInMolecule(mol);
     for (const [el, n] of Object.entries(counts)) {
       productAtoms[el] = (productAtoms[el] || 0) + n;
     }
   });
-
   const balanceErrors = compareAtomCounts(reactantAtoms, productAtoms);
   if (balanceErrors.length > 0) {
     warnings.push(`Atom balance check failed (reactants ≠ products): ${balanceErrors.join(', ')}`);
   }
-
   let reactantCharge = 0;
   let productCharge = 0;
   (mechanism.reactants || []).forEach(mol => {
@@ -162,8 +142,6 @@ async function validateWithPubChem(mechanism) {
   if (reactantCharge !== productCharge) {
     warnings.push(`Charge balance failed: reactants total charge ${reactantCharge}, products total charge ${productCharge}`);
   }
-
   return { warnings, enrichments };
 }
-
 module.exports = { validateWithPubChem, lookupFormula };

@@ -1,379 +1,470 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import MoleculeVisualizer3D from '../components/MoleculeVisualizer3D';
-import JeeQuestionsSection from '../components/JeeQuestionsSection';
+import AgentTraceDrawer from '../components/AgentTraceDrawer';
 import ErrorBoundary from '../components/ErrorBoundary';
-
+import { buildInitialGraph } from '../utils/moleculeGraph';
 const EXAMPLE_REACTIONS = [
-  'NaOH + HCl → NaCl + H2O',
-  'CH3Br + OH- → CH3OH + Br-',
-  'Combustion of methane',
-  'SN2 reaction',
-  'Fe + CuSO4 → FeSO4 + Cu',
-  'Decomposition of H2O2',
+  { label: 'Bromomethane', formula: 'CH3Br', query: 'CH3Br + OH- -> CH3OH + Br-' },
+  { label: 'Chloromethane', formula: 'CH3Cl', query: 'CH3Cl + OH- -> CH3OH + Cl-' },
+  { label: 'Bromoethane', formula: 'C2H5Br', query: 'C2H5Br + OH- -> C2H5OH + Br-' },
+  { label: 'Neutralization', formula: 'NaOH + HCl', query: 'NaOH + HCl -> NaCl + H2O' },
+  { label: 'Combustion', formula: 'CH4 + 2O2', query: 'Combustion of methane' },
+  { label: 'Redox', formula: 'Fe + CuSO4', query: 'Fe + CuSO4 -> FeSO4 + Cu' },
 ];
-
 function Home() {
-  const [reaction, setReaction] = useState('');
+  const [reaction, setReaction] = useState('CH3Br + OH- -> CH3OH + Br-');
   const [loading, setLoading] = useState(false);
   const [reactionData, setReactionData] = useState(null);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [error, setError] = useState(null);
-
+  const [quizIdx, setQuizIdx] = useState(0);
+  const [userAnswers, setUserAnswers] = useState({});
   const steps = reactionData?.steps || [];
-  const activeStep = steps[currentStep] || steps[0];
   const totalSteps = steps.length;
-
+  const quizQuestions = reactionData?.jeeQuestions || [];
+  const activeQuiz = quizQuestions[quizIdx] || quizQuestions[0];
+  const currentStep = useMemo(() => {
+    if (!totalSteps) return 0;
+    return Math.min(totalSteps - 1, Math.floor(progress * totalSteps));
+  }, [progress, totalSteps]);
   useEffect(() => {
     if (!isPlaying) return;
-    if (currentStep >= totalSteps - 1) { setIsPlaying(false); return; }
-    const timer = setTimeout(() => {
-      setCurrentStep(prev => {
-        const next = prev + 1;
-        if (next >= totalSteps - 1) setIsPlaying(false);
+    let animId;
+    let lastTime = performance.now();
+    const BASE_DURATION = 6000; 
+    const frame = (now) => {
+      const delta = now - lastTime;
+      lastTime = now;
+      setProgress((prev) => {
+        const next = prev + (delta * playbackSpeed) / BASE_DURATION;
+        if (next >= 1) {
+          setIsPlaying(false);
+          return 1;
+        }
         return next;
       });
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [isPlaying, currentStep, totalSteps]);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!reaction.trim()) { setError('Please enter a chemical reaction or reaction name.'); return; }
+      animId = requestAnimationFrame(frame);
+    };
+    animId = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying]);
+  useEffect(() => {
+    triggerAnalyze('CH3Br + OH- -> CH3OH + Br-');
+  }, []);
+  const triggerAnalyze = async (queryToAnalyze) => {
+    const q = (queryToAnalyze || reaction).trim();
+    if (!q) {
+      setError('Please enter a chemical reaction or name.');
+      return;
+    }
     setIsPlaying(false);
     setLoading(true);
-    setReactionData(null);
-    setCurrentStep(0);
     setError(null);
+    setProgress(0);
+    setQuizIdx(0);
+    setUserAnswers({});
     try {
       const response = await fetch('http://localhost:5001/api/reactions/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reaction: reaction.trim() }),
+        body: JSON.stringify({ reaction: q }),
       });
       const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data.message || 'Failed to analyze reaction.');
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Failed to analyze reaction.');
+      }
       setReactionData(data.data);
-      setCurrentStep(0);
+      setProgress(0);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'An unexpected error occurred while analyzing.');
     } finally {
       setLoading(false);
     }
   };
-
-  const handlePrevious = () => { setIsPlaying(false); setCurrentStep(prev => Math.max(0, prev - 1)); };
-  const handleNext = () => { setIsPlaying(false); setCurrentStep(prev => Math.min(totalSteps - 1, prev + 1)); };
-  const handlePlay = () => {
-    if (isPlaying) { setIsPlaying(false); }
-    else { if (currentStep >= totalSteps - 1) setCurrentStep(0); setIsPlaying(true); }
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    triggerAnalyze(reaction);
   };
-
+  const handlePlayToggle = () => {
+    if (isPlaying) {
+      setIsPlaying(false);
+    } else {
+      if (progress >= 0.99) setProgress(0);
+      setIsPlaying(true);
+    }
+  };
+  const handleProgressChange = (newP) => {
+    setIsPlaying(false);
+    setProgress(Math.max(0, Math.min(1, newP)));
+  };
+  const handleStepChange = (idx) => {
+    setIsPlaying(false);
+    if (totalSteps > 1) {
+      setProgress(idx / (totalSteps - 1));
+    } else {
+      setProgress(0);
+    }
+  };
+  const handleSelectQuizOption = (questionId, optionKey) => {
+    if (userAnswers[questionId]) return;
+    setUserAnswers(prev => ({
+      ...prev,
+      [questionId]: optionKey,
+    }));
+  };
   const formatAction = (action) => {
     if (!action) return '';
     return action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
-
+  const bondSummary = useMemo(() => {
+    if (!reactionData) return { broken: 'C–Br', formed: 'C–O', pathway: 'Walden Inversion / SN2' };
+    let broken = null;
+    let formed = null;
+    const initialGraph = buildInitialGraph(reactionData);
+    const atomEl = (id) => initialGraph.atoms.find(a => a.id === id)?.element || id;
+    (reactionData.steps || []).forEach(s => {
+      if (s.action === 'BOND_BREAK' && s.targets?.bond) {
+        const parts = s.targets.bond.split('-');
+        if (parts.length === 2) broken = `${atomEl(parts[0])}–${atomEl(parts[1])}`;
+      }
+      if (s.action === 'BOND_FORM' && s.targets) {
+        if (s.targets.bond) {
+          const parts = s.targets.bond.split('-');
+          if (parts.length === 2) formed = `${atomEl(parts[0])}–${atomEl(parts[1])}`;
+        } else if (s.targets.atom1 && s.targets.atom2) {
+          formed = `${atomEl(s.targets.atom1)}–${atomEl(s.targets.atom2)}`;
+        }
+      }
+      if (s.action === 'NUCLEOPHILE_ATTACK' && s.targets) {
+        if (!formed && s.targets.nucleophile_atom && s.targets.electrophile_atom) {
+          formed = `${atomEl(s.targets.nucleophile_atom)}–${atomEl(s.targets.electrophile_atom)}`;
+        }
+      }
+    });
+    if (!broken) {
+      if (reactionData._category === 'ORGANIC') broken = 'Polar C–X';
+      else if (reactionData._category === 'NEUTRALIZATION') broken = 'H–O (Acid-Base)';
+      else broken = 'Reactant Bonds';
+    }
+    if (!formed) {
+      if (reactionData._category === 'ORGANIC') formed = 'C–Nu';
+      else if (reactionData._category === 'NEUTRALIZATION') formed = 'H–OH (H2O)';
+      else formed = 'Product Bonds';
+    }
+    const pathway = reactionData.reaction?.type || reactionData._category || 'Concerted Mechanism';
+    return { broken, formed, pathway };
+  }, [reactionData]);
+  const quizScore = Object.entries(userAnswers).filter(
+    ([qId, ans]) => quizQuestions.find(q => q.id === qId)?.correctAnswer === ans
+  ).length;
   return (
-    <div style={{
-      minHeight: '100vh', background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
-      fontFamily: "'Inter', system-ui, sans-serif", color: '#e2e8f0', padding: '0'
-    }}>
-      <div style={{ maxWidth: '960px', margin: '0 auto', padding: '2rem 1.5rem 4rem' }}>
-
-        <header style={{ textAlign: 'center', marginBottom: '2.5rem', paddingTop: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.6rem', marginBottom: '0.6rem' }}>
-            <span style={{ fontSize: '2rem' }}>⚗️</span>
-            <h1 style={{
-              fontSize: '2.2rem', fontWeight: 800,
-              background: 'linear-gradient(135deg, #a78bfa, #60a5fa, #34d399)',
-              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.02em'
-            }}>
-              ChemMechanism AI
-            </h1>
-          </div>
-          <p style={{ fontSize: '1rem', color: '#94a3b8', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
-            AI-powered 3D reaction mechanism visualizer for chemistry students.
-            Enter any reaction equation or just type a reaction name.
-          </p>
-        </header>
-
-        <form onSubmit={handleSubmit} style={{ marginBottom: '1.5rem' }}>
-          <div style={{
-            display: 'flex', gap: '0.75rem', background: 'rgba(255,255,255,0.06)',
-            borderRadius: '14px', padding: '0.5rem', border: '1px solid rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.3)'
-          }}>
-            <input
-              id="reaction-input"
-              type="text"
-              value={reaction}
-              onChange={(e) => setReaction(e.target.value)}
-              placeholder="e.g. NaOH + HCl → NaCl + H2O  or  SN2 reaction"
-              disabled={loading}
-              style={{
-                flex: 1, padding: '0.85rem 1.1rem', fontSize: '1rem',
-                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '10px', color: '#f1f5f9', outline: 'none',
-                fontFamily: 'inherit', transition: 'border-color 0.2s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = 'rgba(139,92,246,0.5)'}
-              onBlur={(e) => e.target.style.borderColor = 'rgba(255,255,255,0.08)'}
-            />
-            <button type="submit" disabled={loading} style={{
-              padding: '0.85rem 1.8rem', fontSize: '0.95rem', fontWeight: 700,
-              color: '#fff', background: loading ? '#4b5563' : 'linear-gradient(135deg, #7c3aed, #2563eb)',
-              border: 'none', borderRadius: '10px',
-              cursor: loading ? 'wait' : 'pointer', whiteSpace: 'nowrap',
-              fontFamily: 'inherit', transition: 'transform 0.15s, box-shadow 0.2s',
-              boxShadow: '0 4px 14px rgba(99,102,241,0.4)',
-              transform: loading ? 'none' : undefined
-            }}
-              onMouseEnter={(e) => { if(!loading) e.target.style.transform = 'translateY(-1px)'; }}
-              onMouseLeave={(e) => { e.target.style.transform = 'none'; }}
-            >
-              {loading ? (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{
-                    width: 16, height: 16, border: '2px solid rgba(255,255,255,0.3)',
-                    borderTop: '2px solid #fff', borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite', display: 'inline-block'
-                  }}/>
-                  Analyzing...
-                </span>
-              ) : 'Analyze Reaction'}
-            </button>
-          </div>
-        </form>
-
-        {!reactionData && !loading && !error && (
-          <div style={{ marginBottom: '2rem' }}>
-            <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.6rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-              Try these examples:
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.45rem' }}>
-              {EXAMPLE_REACTIONS.map(ex => (
-                <button key={ex} onClick={() => setReaction(ex)} style={{
-                  padding: '0.4rem 0.85rem', fontSize: '0.8rem', fontWeight: 500,
-                  color: '#c4b5fd', background: 'rgba(139,92,246,0.12)',
-                  border: '1px solid rgba(139,92,246,0.25)', borderRadius: '999px',
-                  cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s'
-                }}
-                  onMouseEnter={(e) => { e.target.style.background = 'rgba(139,92,246,0.25)'; e.target.style.borderColor = 'rgba(139,92,246,0.5)'; }}
-                  onMouseLeave={(e) => { e.target.style.background = 'rgba(139,92,246,0.12)'; e.target.style.borderColor = 'rgba(139,92,246,0.25)'; }}
-                >
-                  {ex}
-                </button>
-              ))}
+    <div>
+      {}
+      <header className="site-header">
+        <div className="header-inner">
+          <div className="brand">
+            <div className="brand-mark">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(30 12 12)" />
+                <ellipse cx="12" cy="12" rx="9" ry="3.5" transform="rotate(-30 12 12)" />
+                <circle cx="12" cy="12" r="2.5" fill="currentColor" />
+              </svg>
             </div>
+            <div>ChemMechanism <span className="brand-ai">AI</span></div>
           </div>
-        )}
-
-        {error && (
-          <div style={{
-            padding: '1rem 1.25rem', borderRadius: '10px', marginBottom: '1.5rem',
-            background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
-            color: '#fca5a5', fontSize: '0.9rem'
-          }}>
-            <strong>Error:</strong> {error}
+          <div className="header-tagline">
+            Interactive 3D Chemical Reaction &amp; IIT-JEE Intelligence Engine
           </div>
-        )}
-
-        {reactionData && (
+          <div className="student-badge">
+            <span /> Built for Curious Minds &amp; JEE Aspirants
+          </div>
+        </div>
+      </header>
+      {}
+      <main>
+        {}
+        <div className="page-intro">
           <div>
-            <ErrorBoundary>
-              <MoleculeVisualizer3D
-                reactionData={reactionData}
-                currentStep={currentStep}
-                onStepChange={setCurrentStep}
-              />
-            </ErrorBoundary>
-
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem',
-              marginTop: '1.25rem'
-            }}>
-              <div style={{
-                background: 'rgba(255,255,255,0.04)', borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.08)', padding: '1rem 1.25rem'
-              }}>
-                <h3 style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
-                  Reactants
-                </h3>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {reactionData.reactants.map((r, i) => (
-                    <div key={i} style={{
-                      background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.2)',
-                      borderRadius: '8px', padding: '0.5rem 0.85rem'
-                    }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#c7d2fe' }}>{r.name}</div>
-                      <div style={{ fontSize: '0.78rem', color: '#818cf8', fontFamily: 'monospace' }}>{r.formula}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{
-                background: 'rgba(255,255,255,0.04)', borderRadius: '12px',
-                border: '1px solid rgba(255,255,255,0.08)', padding: '1rem 1.25rem'
-              }}>
-                <h3 style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.6rem' }}>
-                  Products
-                </h3>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {reactionData.products.map((p, i) => (
-                    <div key={i} style={{
-                      background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.2)',
-                      borderRadius: '8px', padding: '0.5rem 0.85rem'
-                    }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#a7f3d0' }}>{p.name}</div>
-                      <div style={{ fontSize: '0.78rem', color: '#34d399', fontFamily: 'monospace' }}>{p.formula}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="eyebrow">
+              <span /> Chemistry, In Motion
             </div>
-
-            {reactionData._pubchem && (
-              <div style={{
-                marginTop: '1rem', padding: '0.65rem 1rem', borderRadius: '10px',
-                background: reactionData._pubchem.verified ? 'rgba(52,211,153,0.08)' : 'rgba(251,191,36,0.08)',
-                border: `1px solid ${reactionData._pubchem.verified ? 'rgba(52,211,153,0.25)' : 'rgba(251,191,36,0.25)'}`,
-                display: 'flex', alignItems: 'flex-start', gap: '0.6rem'
-              }}>
-                <span style={{ fontSize: '1.1rem' }}>{reactionData._pubchem.verified ? '✓' : '⚠'}</span>
-                <div>
-                  <div style={{
-                    fontSize: '0.82rem', fontWeight: 600,
-                    color: reactionData._pubchem.verified ? '#34d399' : '#fbbf24'
-                  }}>
-                    {reactionData._pubchem.verified
-                      ? 'PubChem Verified — All molecules match known chemical data'
-                      : 'PubChem Warnings'}
-                  </div>
-                  {!reactionData._pubchem.verified && reactionData._pubchem.warnings?.length > 0 && (
-                    <ul style={{ margin: '0.3rem 0 0', paddingLeft: '1rem', listStyle: 'disc' }}>
-                      {reactionData._pubchem.warnings.map((w, i) => (
-                        <li key={i} style={{ fontSize: '0.75rem', color: '#fde68a', lineHeight: 1.5 }}>{w}</li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+            <h1>Go beyond the equation.</h1>
+            <p>Watch chemical bonds break and form in real-time 3D, and master IIT-JEE concepts.</p>
+          </div>
+          <div className="journey">
+            <span className={!reactionData || loading ? 'journey-active' : ''}>
+              <b>01</b> Explore
+            </span>
+            <span>&rsaquo;</span>
+            <span className={reactionData && !loading ? 'journey-active' : ''}>
+              <b>02</b> Understand
+            </span>
+            <span>&rsaquo;</span>
+            <span className={quizQuestions.length > 0 ? 'journey-active' : ''}>
+              <b>03</b> Test yourself
+            </span>
+          </div>
+        </div>
+        {/* Reaction Input Card */}
+        <section className="reaction-card">
+          <div className="section-label">
+            <span className="number">01</span> Reaction Input
+            <span className="input-hint">Type any chemical formula, IUPAC name, or reaction mechanism</span>
+          </div>
+          <form className="reaction-form" onSubmit={handleSubmit}>
+            <div className="input-wrap">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                id="reaction-input"
+                type="text"
+                value={reaction}
+                onChange={(e) => setReaction(e.target.value)}
+                placeholder="e.g. CH3Br + OH- -> CH3OH + Br-  or  NaOH + HCl -> NaCl + H2O"
+                disabled={loading}
+              />
+            </div>
+            <button type="submit" className="analyze-button" disabled={loading}>
+              {loading ? (
+                <>
+                  <span style={{
+                    width: 14, height: 14, border: '2px solid rgba(255,255,255,0.4)',
+                    borderTop: '2px solid #ffffff', borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite', display: 'inline-block'
+                  }} />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" fill="currentColor" />
+                  </svg>
+                  Simulate
+                </>
+              )}
+            </button>
+          </form>
+          <div className="examples">
+            <span>Quick Try:</span>
+            {EXAMPLE_REACTIONS.map((ex) => (
+              <button
+                key={ex.label}
+                type="button"
+                className={`example ${reaction === ex.query ? 'active' : ''}`}
+                onClick={() => {
+                  setReaction(ex.query);
+                  triggerAnalyze(ex.query);
+                }}
+              >
+                {ex.label} <span>{ex.formula}</span>
+              </button>
+            ))}
+          </div>
+          {error && <div className="input-error">{error}</div>}
+        </section>
+        {}
+        {reactionData && (
+          <ErrorBoundary>
+            <MoleculeVisualizer3D
+              reactionData={reactionData}
+              progress={progress}
+              onProgressChange={handleProgressChange}
+              currentStep={currentStep}
+              onStepChange={handleStepChange}
+              isPlaying={isPlaying}
+              onPlayToggle={handlePlayToggle}
+              playbackSpeed={playbackSpeed}
+              onSpeedChange={setPlaybackSpeed}
+              onRestart={() => {
+                setIsPlaying(false);
+                setProgress(0);
+              }}
+            />
+          </ErrorBoundary>
+        )}
+        {}
+        {reactionData && (
+          <div className="learning-grid">
+            {}
+            <section className="explanation-card">
+              <div className="section-label">
+                <span className="number">02</span> AI Explanation
+                <span className="label-pill">MECHANISM INSIGHTS</span>
               </div>
-            )}
-
-            <div style={{
-              marginTop: '1.25rem', background: 'rgba(255,255,255,0.04)',
-              borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)',
-              padding: '1.25rem'
-            }}>
-              <h3 style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.8rem' }}>
-                Mechanism Steps
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {steps.map((s, idx) => (
-                  <div
-                    key={s.step}
-                    onClick={() => { setIsPlaying(false); setCurrentStep(idx); }}
-                    style={{
-                      display: 'flex', gap: '0.75rem', alignItems: 'flex-start',
-                      padding: '0.75rem 1rem', borderRadius: '8px',
-                      cursor: 'pointer', transition: 'all 0.2s',
-                      background: idx === currentStep ? 'rgba(99,102,241,0.15)' : 'rgba(255,255,255,0.02)',
-                      border: idx === currentStep ? '1px solid rgba(99,102,241,0.35)' : '1px solid transparent',
-                    }}
-                    onMouseEnter={(e) => { if(idx !== currentStep) e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                    onMouseLeave={(e) => { if(idx !== currentStep) e.currentTarget.style.background = 'rgba(255,255,255,0.02)'; }}
-                  >
-                    <span style={{
-                      width: 26, height: 26, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '0.72rem', fontWeight: 700, flexShrink: 0,
-                      background: idx === currentStep ? 'linear-gradient(135deg, #7c3aed, #2563eb)' : 'rgba(255,255,255,0.08)',
-                      color: idx === currentStep ? '#fff' : '#94a3b8',
-                    }}>
-                      {s.step}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontSize: '0.82rem', fontWeight: 600,
-                        color: idx === currentStep ? '#c4b5fd' : '#94a3b8',
-                        marginBottom: '0.15rem'
-                      }}>
-                        {formatAction(s.action)}
-                      </div>
-                      <div style={{ fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4 }}>
-                        {s.explanation}
-                      </div>
+              <h2>{reactionData.reaction?.name || reactionData.reaction?.input || 'Mechanism Overview'}</h2>
+              <p className="explanation-intro">
+                {reactionData.reaction?.description ||
+                  `In this ${reactionData.reaction?.type || 'concerted'} pathway, reactants overcome activation barrier with simultaneous electron pair transfer and continuous orbital overlap.`}
+              </p>
+              <div className="explanation-steps">
+                {steps.map((s, idx) => {
+                  const dotColors = ['cyan', 'purple', 'orange'];
+                  const dot = dotColors[idx % 3];
+                  return (
+                    <div key={s.step || idx}>
+                      <span className={`step-dot ${dot}`} />
+                      <p>
+                        <strong>Step {s.step}: {s.name || formatAction(s.action)}</strong> &mdash; {s.explanation}
+                      </p>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
-
-              {totalSteps > 1 && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  gap: '0.75rem', marginTop: '1rem', paddingTop: '1rem',
-                  borderTop: '1px solid rgba(255,255,255,0.06)'
-                }}>
-                  <button onClick={handlePrevious} disabled={currentStep === 0}
-                    style={{
-                      padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600,
-                      color: currentStep === 0 ? '#475569' : '#c4b5fd',
-                      background: currentStep === 0 ? 'rgba(255,255,255,0.03)' : 'rgba(139,92,246,0.12)',
-                      border: `1px solid ${currentStep === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(139,92,246,0.25)'}`,
-                      borderRadius: '8px', cursor: currentStep === 0 ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit', transition: 'all 0.15s'
+              {}
+              <div className="bond-summary">
+                <span>
+                  <i className="break-icon">&minus;</i>
+                  <div>
+                    <small>BOND BROKEN</small>
+                    {bondSummary.broken}
+                  </div>
+                </span>
+                <span>
+                  <i className="form-icon">+</i>
+                  <div>
+                    <small>BOND FORMED</small>
+                    {bondSummary.formed}
+                  </div>
+                </span>
+                <span className="concerted">{bondSummary.pathway}</span>
+              </div>
+              <div className="explanation-note">
+                <span>💡</span> Real-time molecular orbital interaction verified against NIH PubChem
+              </div>
+            </section>
+            {}
+            <section className="quiz-card">
+              <div className="section-label">
+                <span className="number">03</span> JEE Quiz
+                <span className="label-pill">EXAM PREP</span>
+              </div>
+              {quizQuestions.length > 0 && activeQuiz ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#7560d8' }}>
+                      QUESTION 0{quizIdx + 1} / 0{quizQuestions.length}
+                    </span>
+                    {activeQuiz.examCitation && (
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        color: '#7560d8',
+                        background: '#f4effd',
+                        border: '1px solid #e7ddf9',
+                        padding: '2px 8px',
+                        borderRadius: '4px'
+                      }}>
+                        🏛️ {activeQuiz.examCitation}
+                      </span>
+                    )}
+                  </div>
+                  <div className="quiz-question">{activeQuiz.question}</div>
+                  <fieldset className="quiz-options">
+                    {(activeQuiz.options || []).map((opt) => {
+                      const isSelected = userAnswers[activeQuiz.id] === opt.key;
+                      const isAnswered = !!userAnswers[activeQuiz.id];
+                      const isCorrect = opt.key === activeQuiz.correctAnswer;
+                      let optClass = 'quiz-option';
+                      if (isAnswered) {
+                        if (isCorrect) optClass += ' correct';
+                        else if (isSelected) optClass += ' incorrect';
+                      } else if (isSelected) {
+                        optClass += ' selected';
+                      }
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          className={optClass}
+                          onClick={() => handleSelectQuizOption(activeQuiz.id, opt.key)}
+                          disabled={isAnswered}
+                        >
+                          <span className="option-letter">{opt.key}</span>
+                          <span>{opt.text}</span>
+                        </button>
+                      );
+                    })}
+                  </fieldset>
+                  {}
+                  {userAnswers[activeQuiz.id] && (
+                    <div className={`quiz-result ${userAnswers[activeQuiz.id] === activeQuiz.correctAnswer ? 'success' : ''}`}>
+                      <strong>
+                        {userAnswers[activeQuiz.id] === activeQuiz.correctAnswer
+                          ? '🎉 Correct Answer!'
+                          : `✕ Incorrect — Option (${activeQuiz.correctAnswer}) is correct.`}
+                      </strong>
+                      {activeQuiz.conceptTested && (
+                        <div style={{ marginTop: '5px', fontWeight: 600 }}>
+                          Key Concept: {activeQuiz.conceptTested}
+                        </div>
+                      )}
+                      <div style={{ marginTop: '5px' }}>{activeQuiz.explanation}</div>
+                    </div>
+                  )}
+                  {}
+                  {quizQuestions.length > 1 && (
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginTop: '16px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid #f0ecfa'
                     }}>
-                    ← Previous
-                  </button>
-
-                  <button onClick={handlePlay}
-                    style={{
-                      padding: '0.5rem 1.4rem', fontSize: '0.82rem', fontWeight: 700,
-                      color: '#fff',
-                      background: isPlaying ? 'linear-gradient(135deg, #ea580c, #dc2626)' :
-                        currentStep >= totalSteps - 1 ? 'linear-gradient(135deg, #0891b2, #2563eb)' :
-                        'linear-gradient(135deg, #059669, #10b981)',
-                      border: 'none', borderRadius: '8px', cursor: 'pointer',
-                      fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-                      display: 'flex', alignItems: 'center', gap: '0.4rem', transition: 'all 0.15s'
-                    }}>
-                    {isPlaying ? '⏸ Pause' : currentStep >= totalSteps - 1 ? '↻ Replay' : '▶ Play'}
-                  </button>
-
-                  <button onClick={handleNext} disabled={currentStep >= totalSteps - 1}
-                    style={{
-                      padding: '0.5rem 1.1rem', fontSize: '0.82rem', fontWeight: 600,
-                      color: currentStep >= totalSteps - 1 ? '#475569' : '#93c5fd',
-                      background: currentStep >= totalSteps - 1 ? 'rgba(255,255,255,0.03)' : 'rgba(37,99,235,0.12)',
-                      border: `1px solid ${currentStep >= totalSteps - 1 ? 'rgba(255,255,255,0.05)' : 'rgba(37,99,235,0.25)'}`,
-                      borderRadius: '8px', cursor: currentStep >= totalSteps - 1 ? 'not-allowed' : 'pointer',
-                      fontFamily: 'inherit', transition: 'all 0.15s'
-                    }}>
-                    Next →
-                  </button>
+                      <button
+                        type="button"
+                        className="example"
+                        disabled={quizIdx === 0}
+                        onClick={() => setQuizIdx(prev => Math.max(0, prev - 1))}
+                        style={{ opacity: quizIdx === 0 ? 0.4 : 1, cursor: quizIdx === 0 ? 'not-allowed' : 'pointer' }}
+                      >
+                        &larr; Prev Question
+                      </button>
+                      <span style={{ fontSize: '11px', color: '#8a899c', fontWeight: 600 }}>
+                        Score: {quizScore} / {quizQuestions.length}
+                      </span>
+                      <button
+                        type="button"
+                        className="example"
+                        disabled={quizIdx === quizQuestions.length - 1}
+                        onClick={() => setQuizIdx(prev => Math.min(quizQuestions.length - 1, prev + 1))}
+                        style={{ opacity: quizIdx === quizQuestions.length - 1 ? 0.4 : 1, cursor: quizIdx === quizQuestions.length - 1 ? 'not-allowed' : 'pointer' }}
+                      >
+                        Next Question &rarr;
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div style={{ padding: '24px 0', textAlign: 'center', color: '#8a899c', fontSize: '13px' }}>
+                  Analyze a reaction to view curated IIT-JEE questions.
                 </div>
               )}
-            </div>
-
-            <JeeQuestionsSection
-              questions={reactionData.jeeQuestions}
-              reactionInput={reactionData.reaction?.input || reaction}
-            />
+            </section>
           </div>
         )}
-
-      </div>
-
+        {}
+        {reactionData && (
+          <AgentTraceDrawer
+            agentTrace={reactionData._agentTrace}
+            pubchemData={reactionData._pubchem}
+            category={reactionData._category || reactionData.reaction?.type}
+          />
+        )}
+        {}
+        <footer>
+          <div>ChemMechanism AI &bull; Autonomous Multi-Agent Chemistry Intelligence &amp; 3D Visualizer</div>
+          <div>Powered by Groq LLM &amp; NIH PubChem REST API &bull; Built for IIT-JEE</div>
+        </footer>
+      </main>
       <style>{`
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @media (max-width: 640px) {
-          div[style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; }
-        }
       `}</style>
     </div>
   );
 }
-
 export default Home;

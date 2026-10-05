@@ -1,19 +1,15 @@
 import React from 'react';
-
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
-
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
-
   componentDidCatch(error, errorInfo) {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
   }
-
   render() {
     if (this.state.hasError) {
       return (
@@ -32,6 +28,11 @@ export default class ErrorBoundary extends React.Component {
           <p style={{ fontSize: '0.82rem', margin: '0 0 1rem 0', color: '#cbd5e1' }}>
             The 3D scene encountered a rendering interruption. The mechanism data and questions below are still fully accessible.
           </p>
+          {this.state.error && (
+            <div style={{ margin: '0 auto 1rem auto', padding: '8px', background: 'rgba(0,0,0,0.1)', borderRadius: '6px', textAlign: 'left', maxWidth: '600px', fontSize: '11px', color: '#ef4444', wordWrap: 'break-word', fontFamily: 'monospace' }}>
+              <strong>Error:</strong> {this.state.error.message || this.state.error.toString()}
+            </div>
+          )}
           <button
             onClick={() => this.setState({ hasError: false, error: null })}
             style={{
@@ -50,7 +51,6 @@ export default class ErrorBoundary extends React.Component {
         </div>
       );
     }
-
     return this.props.children;
   }
 }

@@ -2,36 +2,51 @@ import { useMemo, useRef, useState, Suspense } from 'react';
 import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text } from '@react-three/drei';
 import * as THREE from 'three';
-import { buildInitialGraph, applyMechanismSteps, buildProductGraph } from '../utils/moleculeGraph';
-
-const LERP_SPEED  = 1.8;
-const ARROW_SPEED = 0.6;
-const ANIM_MS     = 1800;
-
+import { buildInitialGraph, applyMechanismSteps } from '../utils/moleculeGraph';
 const ELEMENT_CONFIG = {
-  H: { color: '#d8d8d8', emissive: '#444444', radius: 0.28 },
-  C: { color: '#303030', emissive: '#181818', radius: 0.40 },
-  N: { color: '#3050f8', emissive: '#0a20c8', radius: 0.38 },
-  O: { color: '#ff2010', emissive: '#aa0000', radius: 0.36 },
-  F: { color: '#90e050', emissive: '#50a010', radius: 0.32 },
-  Cl: { color: '#1ff01f', emissive: '#00b000', radius: 0.44 },
-  Br: { color: '#a52828', emissive: '#741818', radius: 0.52 },
-  I: { color: '#940094', emissive: '#640064', radius: 0.58 },
-  S: { color: '#e8e820', emissive: '#c8c800', radius: 0.50 },
-  P: { color: '#ff8000', emissive: '#c85000', radius: 0.48 },
-  Na: { color: '#ab5cf2', emissive: '#7b2cc2', radius: 0.54 },
-  K: { color: '#8f40d4', emissive: '#5f10a4', radius: 0.62 },
-  Ca: { color: '#3d9970', emissive: '#1d7750', radius: 0.58 },
-  Mg: { color: '#8aff00', emissive: '#4aaf00', radius: 0.52 },
-  Fe: { color: '#e06000', emissive: '#903000', radius: 0.52 },
-  Cu: { color: '#c87533', emissive: '#884503', radius: 0.50 },
-  Zn: { color: '#7d80b0', emissive: '#4d5080', radius: 0.52 },
-  Ag: { color: '#c0c0c0', emissive: '#909090', radius: 0.54 },
-  Ba: { color: '#00c900', emissive: '#008900', radius: 0.62 },
-  default: { color: '#b0b0b0', emissive: '#808080', radius: 0.42 },
+  H: { color: '#d6e5ef', legendColor: '#d6e5ef', emissive: '#5b6772', radius: 0.28 },
+  C: { color: '#4c5770', legendColor: '#6e7a94', emissive: '#1c2230', radius: 0.55 },
+  N: { color: '#4b7bec', legendColor: '#4b7bec', emissive: '#183680', radius: 0.50 },
+  O: { color: '#27bfd5', legendColor: '#46c5d5', emissive: '#0e5963', radius: 0.52 },
+  F: { color: '#5ecb9f', legendColor: '#5ecb9f', emissive: '#1e563f', radius: 0.44 },
+  Cl: { color: '#75b98b', legendColor: '#75b98b', emissive: '#2a4f36', radius: 0.60 },
+  Br: { color: '#9270dc', legendColor: '#a087d8', emissive: '#422a70', radius: 0.67 },
+  I: { color: '#845ec2', legendColor: '#845ec2', emissive: '#38205c', radius: 0.70 },
+  S: { color: '#e5c058', legendColor: '#e5c058', emissive: '#574719', radius: 0.56 },
+  P: { color: '#e89255', legendColor: '#e89255', emissive: '#5e3316', radius: 0.54 },
+  Na: { color: '#a27bf0', legendColor: '#a27bf0', emissive: '#492a80', radius: 0.56 },
+  K: { color: '#8d65e2', legendColor: '#8d65e2', emissive: '#3b236e', radius: 0.62 },
+  Ca: { color: '#48a999', legendColor: '#48a999', emissive: '#174740', radius: 0.58 },
+  Mg: { color: '#55c57a', legendColor: '#55c57a', emissive: '#1f5431', radius: 0.54 },
+  Fe: { color: '#d97d52', legendColor: '#d97d52', emissive: '#592d18', radius: 0.54 },
+  Cu: { color: '#cf8860', legendColor: '#cf8860', emissive: '#52311f', radius: 0.52 },
+  Zn: { color: '#828aa8', legendColor: '#828aa8', emissive: '#2b3045', radius: 0.52 },
+  Ag: { color: '#c5d0e0', legendColor: '#c5d0e0', emissive: '#556070', radius: 0.54 },
+  Ba: { color: '#52b788', legendColor: '#52b788', emissive: '#1b4d38', radius: 0.62 },
+  default: { color: '#7a869a', legendColor: '#7a869a', emissive: '#2c3545', radius: 0.45 },
 };
 const elCfg = el => ELEMENT_CONFIG[el] || ELEMENT_CONFIG.default;
-
+const ELEMENT_NAMES = {
+  H: 'Hydrogen',
+  C: 'Carbon',
+  N: 'Nitrogen',
+  O: 'Oxygen',
+  F: 'Fluorine',
+  Cl: 'Chlorine',
+  Br: 'Bromine',
+  I: 'Iodine',
+  S: 'Sulfur',
+  P: 'Phosphorus',
+  Na: 'Sodium',
+  K: 'Potassium',
+  Ca: 'Calcium',
+  Mg: 'Magnesium',
+  Fe: 'Iron',
+  Cu: 'Copper',
+  Zn: 'Zinc',
+  Ag: 'Silver',
+  Ba: 'Barium',
+};
 const CATEGORY_FX = {
   COMBUSTION: { color: '#f97316', glow: '#ef4444' },
   REDOX: { color: '#818cf8', glow: '#6366f1' },
@@ -42,13 +57,11 @@ const CATEGORY_FX = {
   default: { color: '#a855f7', glow: '#7c3aed' },
 };
 const getCategoryFx = cat => CATEGORY_FX[cat] || CATEGORY_FX.default;
-
 const vNorm = ([x, y, z]) => { const l = Math.sqrt(x * x + y * y + z * z) || 1; return [x / l, y / l, z / l]; };
 const vCross = ([ax, ay, az], [bx, by, bz]) => [ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx];
 const vAdd = ([ax, ay, az], [bx, by, bz]) => [ax + bx, ay + by, az + bz];
 const vScale = ([x, y, z], s) => [x * s, y * s, z * s];
 const vAddSc = (a, b, s) => vAdd(a, vScale(b, s));
-
 function computeOutDirs(count, inDir) {
   if (count === 0) return [];
   if (inDir === null) {
@@ -75,7 +88,6 @@ function computeOutDirs(count, inDir) {
     fwd[2] * c + (side[2] * Math.cos(phi) + up2[2] * Math.sin(phi)) * s]);
   });
 }
-
 function layoutMolecule(atoms, bonds, cx = 0) {
   const pos = {};
   if (!atoms.length) return pos;
@@ -117,26 +129,21 @@ function layoutMolecule(atoms, bonds, cx = 0) {
   }
   return pos;
 }
-
 function findSmartGroups(atoms, bonds, initialBonds) {
   const parent = {};
   atoms.forEach(a => { parent[a.id] = a.id; });
   const find = id => parent[id] === id ? id : (parent[id] = find(parent[id]));
   const union = (a, b) => { parent[find(a)] = find(b); };
-
   bonds.forEach(b => { if (parent[b.atom1] !== undefined && parent[b.atom2] !== undefined) union(b.atom1, b.atom2); });
-
   const isBondedInInitial = id => (initialBonds || []).some(b => b.atom1 === id || b.atom2 === id);
   const atomHasBond = new Set();
   bonds.forEach(b => { atomHasBond.add(b.atom1); atomHasBond.add(b.atom2); });
-
   const molGroups = {};
   atoms.forEach(a => {
     const mid = a.moleculeId || '__none__';
     if (!molGroups[mid]) molGroups[mid] = [];
     molGroups[mid].push(a.id);
   });
-
   Object.values(molGroups).forEach(ids => {
     const bondedInMol = ids.filter(id => atomHasBond.has(id));
     ids.forEach(id => {
@@ -149,7 +156,6 @@ function findSmartGroups(atoms, bonds, initialBonds) {
       }
     });
   });
-
   const groups = {};
   atoms.forEach(a => {
     const root = find(a.id);
@@ -158,7 +164,6 @@ function findSmartGroups(atoms, bonds, initialBonds) {
   });
   return Object.values(groups);
 }
-
 function compute3DLayoutForStep(atoms, bonds, initialBonds) {
   if (!atoms.length) return {};
   const groups = findSmartGroups(atoms, bonds, initialBonds);
@@ -174,7 +179,6 @@ function compute3DLayoutForStep(atoms, bonds, initialBonds) {
   });
   return positions;
 }
-
 function getActiveAtomIds(activeStepData) {
   const ids = new Set();
   if (!activeStepData?.targets) return ids;
@@ -183,7 +187,6 @@ function getActiveAtomIds(activeStepData) {
     .forEach(f => { if (activeStepData.targets[f]) ids.add(activeStepData.targets[f]); });
   return ids;
 }
-
 function getArrowParams(activeStepData, positions) {
   if (!activeStepData?.targets) return null;
   const { action, targets } = activeStepData;
@@ -202,21 +205,16 @@ function getArrowParams(activeStepData, positions) {
     default: return null;
   }
 }
-
 function Atom3D({ atom, position, isActive, category }) {
   const cfg = elCfg(atom.element);
   const meshRef = useRef();
   const haloRef = useRef();
   const fx = getCategoryFx(category);
-  const lerpPos = useRef(new THREE.Vector3(...(position || [0, 0, 0])));
-  const targetPos = new THREE.Vector3(...(position || [0, 0, 0]));
-
-  useFrame(({ clock }, delta) => {
+  useFrame(({ clock }) => {
     if (!meshRef.current) return;
-    lerpPos.current.lerp(targetPos, Math.min(1, LERP_SPEED * delta));
-    meshRef.current.position.copy(lerpPos.current);
+    meshRef.current.position.set(position[0], position[1], position[2]);
     if (haloRef.current) {
-      haloRef.current.position.copy(lerpPos.current);
+      haloRef.current.position.set(position[0], position[1], position[2]);
       if (isActive) {
         const t = clock.getElapsedTime();
         const s = 1 + 0.18 * Math.sin(t * 4.5);
@@ -225,9 +223,7 @@ function Atom3D({ atom, position, isActive, category }) {
       }
     }
   });
-
   const label = atom.charge > 0 ? `${atom.element}+` : atom.charge < 0 ? `${atom.element}-` : atom.element;
-
   return (
     <group>
       {isActive && (
@@ -244,7 +240,13 @@ function Atom3D({ atom, position, isActive, category }) {
       )}
       <mesh ref={meshRef} position={position} castShadow receiveShadow>
         <sphereGeometry args={[cfg.radius, 32, 32]} />
-        <meshStandardMaterial color={cfg.color} emissive={isActive ? fx.glow : cfg.emissive} emissiveIntensity={isActive ? 0.4 : 0.15} roughness={0.35} metalness={0.1} />
+        <meshStandardMaterial
+          color={cfg.color}
+          emissive={isActive ? fx.glow : (cfg.emissive || '#000000')}
+          emissiveIntensity={isActive ? 0.35 : 0.08}
+          roughness={0.25}
+          metalness={0.2}
+        />
       </mesh>
       <Text position={[position[0], position[1] + cfg.radius + 0.24, position[2]]}
         fontSize={label.length > 2 ? 0.18 : 0.23} color="#f1f5f9"
@@ -254,66 +256,60 @@ function Atom3D({ atom, position, isActive, category }) {
     </group>
   );
 }
-
-function Bond3D({ atom1Pos, atom2Pos, order = 1, status }) {
+function Bond3D({ atom1Pos, atom2Pos, order = 1, status, opacity = 1, radiusFactor = 1 }) {
   const matRefs = [useRef(), useRef(), useRef()];
   const [x1, y1, z1] = atom1Pos, [x2, y2, z2] = atom2Pos;
   const mid = [(x1 + x2) / 2, (y1 + y2) / 2, (z1 + z2) / 2];
   const dx = x2 - x1, dy = y2 - y1, dz = z2 - z1;
   const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (len < 0.01) return null;
   const dir = new THREE.Vector3(dx, dy, dz).normalize();
   const up = new THREE.Vector3(0, 1, 0);
   const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
   const rot = new THREE.Euler().setFromQuaternion(quat);
-  const color = status === 'breaking' ? '#ef4444' : status === 'forming' ? '#3b82f6' : '#94a3b8';
-  const R = 0.09, O = 0.14;
+  const color = status === 'breaking' ? '#ef4444' : status === 'forming' ? '#27bfd5' : '#8895ae';
+  const R = 0.09 * Math.max(0.15, radiusFactor), O = 0.14;
   const pd = new THREE.Vector3(dx, dy, dz).normalize();
   const arb2 = Math.abs(pd.y) < 0.9 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
   const perp = new THREE.Vector3().crossVectors(pd, arb2).normalize().multiplyScalar(O);
-
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     matRefs.forEach(r => {
       if (!r.current) return;
       if (status === 'breaking') {
-        r.current.opacity = 0.3 + 0.5 * Math.abs(Math.sin(t * 6));
+        r.current.opacity = Math.max(0, opacity * (0.4 + 0.6 * Math.abs(Math.sin(t * 6))));
         r.current.transparent = true;
         r.current.color.set('#ef4444');
       } else if (status === 'forming') {
-        r.current.opacity = 0.4 + 0.6 * Math.abs(Math.sin(t * 4));
+        r.current.opacity = Math.min(1, opacity * (0.5 + 0.5 * Math.abs(Math.sin(t * 4))));
         r.current.transparent = true;
-        r.current.color.set('#3b82f6');
+        r.current.color.set('#27bfd5');
       } else {
-        r.current.opacity = 1;
-        r.current.transparent = false;
-        r.current.color.set('#94a3b8');
+        r.current.opacity = opacity;
+        r.current.transparent = opacity < 0.99;
+        r.current.color.set('#8895ae');
       }
     });
   });
-
+  if (len < 0.01) return null;
   const cyl = (off, k, mRef) => (
     <mesh key={k} position={[mid[0] + off[0], mid[1] + off[1], mid[2] + off[2]]} rotation={[rot.x, rot.y, rot.z]} castShadow>
       <cylinderGeometry args={[R, R, len, 12]} />
-      <meshStandardMaterial ref={mRef} color={color} roughness={0.5} metalness={0.1} />
+      <meshStandardMaterial ref={mRef} color={color} roughness={0.5} metalness={0.1} transparent={opacity < 0.99} opacity={opacity} />
     </mesh>
   );
   if (order === 1) return cyl([0, 0, 0], 'c0', matRefs[0]);
   if (order === 2) return <group>{cyl([perp.x, perp.y, perp.z], 'c1', matRefs[0])}{cyl([-perp.x, -perp.y, -perp.z], 'c2', matRefs[1])}</group>;
   return <group>{cyl([0, 0, 0], 'c0', matRefs[0])}{cyl([perp.x, perp.y, perp.z], 'c1', matRefs[1])}{cyl([-perp.x, -perp.y, -perp.z], 'c2', matRefs[2])}</group>;
 }
-
-function ElectronArrow3D({ fromPos, toPos, color = '#a855f7', category }) {
+function ElectronArrow3D({ fromPos, toPos, color = '#a855f7', category, opacity = 1 }) {
   const lineRef = useRef();
   const headRef = useRef();
-  const geoRef  = useRef();
-  const progressRef = useRef(0);
-  const curveRef    = useRef(null);
-  const allPtsRef   = useRef([]);
-
+  const geoRef = useRef();
+  const beadRef = useRef();
+  const curveRef = useRef(null);
+  const allPtsRef = useRef([]);
   const [x1, y1, z1] = fromPos;
   const [x2, y2, z2] = toPos;
-
   useMemo(() => {
     const ctrlX = (x1 + x2) / 2;
     const ctrlY = Math.max(y1, y2) + 1.8;
@@ -324,63 +320,62 @@ function ElectronArrow3D({ fromPos, toPos, color = '#a855f7', category }) {
       new THREE.Vector3(x2, y2, z2),
     ]);
     allPtsRef.current = curveRef.current.getPoints(64);
-    progressRef.current = 0;
   }, [x1, y1, z1, x2, y2, z2]);
-
   const TOTAL = 65;
-  const initPositions = new Float32Array(TOTAL * 3);
-
-  useFrame((_, delta) => {
-    progressRef.current = Math.min(1, progressRef.current + delta * ARROW_SPEED);
-    const count = Math.max(2, Math.floor(progressRef.current * allPtsRef.current.length));
+  const initPositions = useMemo(() => new Float32Array(TOTAL * 3), []);
+  useFrame(({ clock }) => {
     const pts = allPtsRef.current;
-
-    if (geoRef.current) {
+    if (!pts || pts.length < 2) return;
+    if (geoRef.current && geoRef.current.attributes.position) {
       const pos = geoRef.current.attributes.position.array;
-      for (let i = 0; i < count && i < pts.length; i++) {
-        pos[i * 3]     = pts[i].x;
+      for (let i = 0; i < pts.length; i++) {
+        pos[i * 3] = pts[i].x;
         pos[i * 3 + 1] = pts[i].y;
         pos[i * 3 + 2] = pts[i].z;
       }
       geoRef.current.attributes.position.needsUpdate = true;
-      geoRef.current.setDrawRange(0, count);
+      geoRef.current.setDrawRange(0, pts.length);
     }
-
-    if (headRef.current && count > 1) {
-      const tip  = pts[count - 1];
-      const prev = pts[Math.max(0, count - 4)];
+    if (headRef.current && pts.length > 1) {
+      const tip = pts[pts.length - 1];
+      const prev = pts[Math.max(0, pts.length - 4)] || pts[0];
       const d = new THREE.Vector3().subVectors(tip, prev).normalize();
       if (d.length() > 0.001) {
         headRef.current.position.set(tip.x, tip.y, tip.z);
         headRef.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d);
       }
     }
+    if (beadRef.current && curveRef.current) {
+      const tPulse = (clock.getElapsedTime() * 0.8) % 1;
+      const pt = curveRef.current.getPoint(tPulse);
+      beadRef.current.position.set(pt.x, pt.y, pt.z);
+    }
   });
-
   const fx = getCategoryFx(category);
-
   return (
     <group>
       <line ref={lineRef}>
         <bufferGeometry ref={geoRef} onUpdate={g => g.setDrawRange(0, 0)}>
           <bufferAttribute
-            attach="attributes-position"
+            attach="attributes.position"
             array={initPositions}
             count={TOTAL}
             itemSize={3}
           />
         </bufferGeometry>
-        <lineBasicMaterial color={color} transparent opacity={0.9} linewidth={2}/>
+        <lineBasicMaterial color={color} transparent opacity={0.85 * opacity} linewidth={2} />
       </line>
       <mesh ref={headRef} position={[x1, y1, z1]}>
-        <coneGeometry args={[0.10, 0.32, 8]}/>
-        <meshStandardMaterial color={color} emissive={fx.glow} emissiveIntensity={0.9}/>
+        <coneGeometry args={[0.10, 0.32, 8]} />
+        <meshStandardMaterial color={color} emissive={fx.glow} emissiveIntensity={0.9} transparent opacity={opacity} />
+      </mesh>
+      <mesh ref={beadRef} position={[x1, y1, z1]}>
+        <sphereGeometry args={[0.07, 12, 12]} />
+        <meshBasicMaterial color="#ffffff" transparent opacity={opacity} />
       </mesh>
     </group>
   );
 }
-
-
 function CameraSetup({ atomCount }) {
   useThree(({ camera }) => {
     const z = Math.max(9, atomCount * 0.8 + 5);
@@ -390,22 +385,84 @@ function CameraSetup({ atomCount }) {
   });
   return null;
 }
-
-function Scene({ initialGraph, steps, currentStep, category }) {
-  const { atoms, bonds, activeStepData } = useMemo(
-    () => applyMechanismSteps(initialGraph, steps, currentStep),
-    [initialGraph, steps, currentStep]
-  );
-
-  const positions = useMemo(
-    () => compute3DLayoutForStep(atoms, bonds, initialGraph?.bonds || []),
-    [atoms, bonds, initialGraph]
-  );
-
-  const activeIds = useMemo(() => getActiveAtomIds(activeStepData), [activeStepData]);
-  const arrowParam = useMemo(() => getArrowParams(activeStepData, positions), [activeStepData, positions]);
+function Scene({ initialGraph, steps, progress = 0, category }) {
+  const milestones = useMemo(() => {
+    if (!steps || steps.length === 0) return [];
+    return steps.map((_, idx) => {
+      const state = applyMechanismSteps(initialGraph, steps, idx);
+      const pos = compute3DLayoutForStep(state.atoms, state.bonds, initialGraph?.bonds || []);
+      return { state, pos };
+    });
+  }, [initialGraph, steps]);
+  const numMilestones = milestones.length;
+  const interpolated = useMemo(() => {
+    if (numMilestones === 0) return { positions: {}, bonds: [], activeStepData: null, currentIdx: 0, arrowOpacity: 1 };
+    if (numMilestones === 1) {
+      return {
+        positions: milestones[0].pos,
+        bonds: milestones[0].state.bonds,
+        activeStepData: milestones[0].state.activeStepData,
+        currentIdx: 0,
+        arrowOpacity: 1,
+      };
+    }
+    const totalTransitions = numMilestones - 1;
+    const v = progress * totalTransitions;
+    const k = Math.min(Math.floor(v), totalTransitions - 1);
+    const k2 = k + 1;
+    const rawFrac = Math.max(0, Math.min(1, v - k));
+    const s = rawFrac * rawFrac * (3 - 2 * rawFrac);
+    const posK = milestones[k]?.pos || {};
+    const posK2 = milestones[k2]?.pos || {};
+    const interpPos = {};
+    initialGraph.atoms.forEach(a => {
+      const p1 = posK[a.id] || [0, 0, 0];
+      const p2 = posK2[a.id] || p1;
+      interpPos[a.id] = [
+        p1[0] + (p2[0] - p1[0]) * s,
+        p1[1] + (p2[1] - p1[1]) * s,
+        p1[2] + (p2[2] - p1[2]) * s,
+      ];
+    });
+    const bondsMap = new Map();
+    (milestones[k]?.state?.bonds || []).forEach(b => {
+      bondsMap.set(b.id, {
+        ...b,
+        status: b.status,
+        opacity: b.status === 'breaking' ? Math.max(0, 1 - s) : 1,
+        radiusFactor: b.status === 'breaking' ? Math.max(0.1, 1 - 0.7 * s) : 1,
+      });
+    });
+    (milestones[k2]?.state?.bonds || []).forEach(b => {
+      if (bondsMap.has(b.id)) {
+        if (b.status === 'forming') {
+          const existing = bondsMap.get(b.id);
+          existing.status = 'forming';
+          existing.opacity = Math.min(1, s);
+          existing.radiusFactor = Math.min(1, 0.3 + 0.7 * s);
+        }
+      } else {
+        bondsMap.set(b.id, {
+          ...b,
+          status: 'forming',
+          opacity: Math.min(1, s),
+          radiusFactor: Math.min(1, 0.3 + 0.7 * s),
+        });
+      }
+    });
+    const activeState = rawFrac < 0.5 ? milestones[k] : milestones[k2];
+    const arrowOpacity = Math.sin(rawFrac * Math.PI);
+    return {
+      positions: interpPos,
+      bonds: Array.from(bondsMap.values()).filter(b => b.opacity > 0.02),
+      activeStepData: activeState?.state?.activeStepData || null,
+      currentIdx: rawFrac < 0.5 ? k : k2,
+      arrowOpacity,
+    };
+  }, [milestones, numMilestones, progress, initialGraph]);
+  const activeIds = useMemo(() => getActiveAtomIds(interpolated.activeStepData), [interpolated.activeStepData]);
+  const arrowParam = useMemo(() => getArrowParams(interpolated.activeStepData, interpolated.positions), [interpolated.activeStepData, interpolated.positions]);
   const totalAtoms = initialGraph.atoms.length;
-
   return (
     <>
       <ambientLight intensity={0.65} color="#ddeeff" />
@@ -414,32 +471,39 @@ function Scene({ initialGraph, steps, currentStep, category }) {
       <pointLight position={[0, -5, 0]} intensity={0.25} color="#fffbe6" />
       <CameraSetup atomCount={totalAtoms} />
       <OrbitControls enablePan enableZoom enableRotate dampingFactor={0.12} enableDamping minDistance={3} maxDistance={60} />
-
-      {bonds.map(bond => {
-        const p1 = positions[bond.atom1], p2 = positions[bond.atom2];
+      {interpolated.bonds.map(bond => {
+        const p1 = interpolated.positions[bond.atom1], p2 = interpolated.positions[bond.atom2];
         if (!p1 || !p2) return null;
-        return <Bond3D key={bond.id} atom1Pos={p1} atom2Pos={p2} order={bond.order || 1} status={bond.status} />;
+        return (
+          <Bond3D
+            key={bond.id}
+            atom1Pos={p1}
+            atom2Pos={p2}
+            order={bond.order || 1}
+            status={bond.status}
+            opacity={bond.opacity}
+            radiusFactor={bond.radiusFactor}
+          />
+        );
       })}
-
-      {atoms.map(atom => {
-        const pos = positions[atom.id];
+      {initialGraph.atoms.map(atom => {
+        const pos = interpolated.positions[atom.id];
         if (!pos) return null;
         return <Atom3D key={atom.id} atom={atom} position={pos} isActive={activeIds.has(atom.id)} category={category} />;
       })}
-
-      {arrowParam && (
+      {arrowParam && interpolated.arrowOpacity > 0.05 && (
         <ElectronArrow3D
-          key={`arrow-${currentStep}`}
+          key={`arrow-${interpolated.currentIdx}`}
           fromPos={arrowParam.fromPos}
           toPos={arrowParam.toPos}
           color={arrowParam.color}
           category={category}
+          opacity={interpolated.arrowOpacity}
         />
       )}
     </>
   );
 }
-
 const ACTION_STYLE = {
   NUCLEOPHILE_ATTACK: { bg: '#2e1065', text: '#c084fc', label: 'Nucleophile Attack' },
   ELECTROPHILE_ATTACK: { bg: '#431407', text: '#f97316', label: 'Electrophile Attack' },
@@ -453,183 +517,198 @@ const ACTION_STYLE = {
   RESONANCE: { bg: '#500724', text: '#fb7185', label: 'Resonance' },
   OXIDATION_REDUCTION: { bg: '#1c2841', text: '#93c5fd', label: 'Redox' },
 };
-
-function MoleculeVisualizer3D({ reactionData, currentStep = 0, onStepChange }) {
+function MoleculeVisualizer3D({
+  reactionData,
+  progress = 0,
+  onProgressChange,
+  currentStep = 0,
+  isPlaying = false,
+  onPlayToggle,
+  playbackSpeed = 1,
+  onSpeedChange,
+  onRestart,
+}) {
   const steps = reactionData?.steps || [];
   const reactionType = reactionData?.reaction?.type || '';
   const category = reactionData?._category || '';
-  const activeStep = steps[currentStep];
-  const actionStyle = ACTION_STYLE[activeStep?.action] || { bg: '#1e293b', text: '#94a3b8', label: activeStep?.action || '' };
-  const [locked, setLocked] = useState(false);
-
+  const activeStep = steps[currentStep] || steps[0];
+  const actionStyle = ACTION_STYLE[activeStep?.action] || { bg: '#1e293b', text: '#94a3b8', label: activeStep?.action || 'Reaction State' };
   const initialGraph = useMemo(() => buildInitialGraph(reactionData), [reactionData]);
+  const presentElements = useMemo(() => {
+    if (!initialGraph?.atoms) return [];
+    return Array.from(new Set(initialGraph.atoms.map(a => a.element)));
+  }, [initialGraph]);
   if (!initialGraph.atoms.length) return null;
-
-  const goStep = (dir) => {
-    if (locked) return;
-    const next = currentStep + dir;
-    if (next < 0 || next >= steps.length) return;
-    setLocked(true);
-    onStepChange?.(next);
-    setTimeout(() => setLocked(false), ANIM_MS);
-  };
-
-  const fx = getCategoryFx(category);
   const pubchem = reactionData?._pubchem || null;
-
   return (
-    <div style={{ width: '100%', marginTop: '1.5rem', fontFamily: 'Inter,system-ui,sans-serif' }}>
-      <div style={{
-        width: '100%', borderRadius: '12px', border: '1px solid #1e293b', overflow: 'hidden',
-        boxShadow: '0 4px 24px -4px rgba(0,0,0,0.45)', backgroundColor: '#0b0e14'
-      }}>
-
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0.75rem 1.25rem', borderBottom: '1px solid #1e2530'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem' }}>
-            <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#f1f5f9' }}>3D Mechanism View</span>
-            {category && (
-              <span style={{
-                fontSize: '0.65rem', fontWeight: 700, color: fx.color,
-                background: '#111827', padding: '0.1rem 0.45rem', borderRadius: '999px',
-                border: `1px solid ${fx.color}`, letterSpacing: '0.06em'
-              }}>
-                {category}
-              </span>
-            )}
-            {pubchem && (
-              <span title={pubchem.verified ? 'All molecules verified by PubChem' : pubchem.warnings?.join('\n')} style={{
-                fontSize: '0.62rem', fontWeight: 700,
-                color: pubchem.verified ? '#34d399' : '#fbbf24',
-                background: pubchem.verified ? '#052e16' : '#451a03',
-                padding: '0.1rem 0.45rem', borderRadius: '999px',
-                border: `1px solid ${pubchem.verified ? '#34d399' : '#fbbf24'}`,
-                cursor: 'help', letterSpacing: '0.04em'
-              }}>
-                {pubchem.verified ? '✓ PubChem Verified' : '⚠ PubChem Warning'}
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            {activeStep && (
-              <span style={{
-                fontSize: '0.72rem', fontWeight: 700, color: actionStyle.text,
-                backgroundColor: actionStyle.bg, padding: '0.2rem 0.6rem',
-                borderRadius: '999px', letterSpacing: '0.04em'
-              }}>
-                {actionStyle.label}
-              </span>
-            )}
-            {reactionType && (
-              <span style={{
-                fontSize: '0.72rem', fontWeight: 700, color: '#60a5fa',
-                backgroundColor: '#1e3a5f', padding: '0.2rem 0.6rem',
-                borderRadius: '999px', letterSpacing: '0.06em', textTransform: 'uppercase'
-              }}>
-                {reactionType}
-              </span>
-            )}
-          </div>
+    <section className="visualizer" style={{ marginTop: '22px' }}>
+      {}
+      <div className="visualizer-top">
+        <div className="simulation-title">
+          <span className="live-dot" />
+          <span>{reactionData?.reaction?.name || reactionData?.reaction?.input || '3D Molecular Simulation'}</span>
+          <span className="divider" />
+          <span className="simulation-subtitle">{category || 'Concerted Mechanism'}</span>
         </div>
-
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {pubchem?.verified && (
+            <span
+              className="mechanism-badge"
+              style={{
+                color: '#34d399',
+                borderColor: 'rgba(52,211,153,0.35)',
+                background: 'rgba(52,211,153,0.1)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+              title="Formulas & charges verified against NIH PubChem"
+            >
+              PUBCHEM VERIFIED
+            </span>
+          )}
+          <span className="mechanism-badge">{reactionType || category || 'MECHANISM'}</span>
+        </div>
+      </div>
+      {}
+      <div className="molecular-stage">
+        <div className="scene-glow" />
         {activeStep && (
-          <div style={{
-            padding: '0.45rem 1.25rem', background: '#0f1117',
-            borderBottom: '1px solid #1e2530', display: 'flex', alignItems: 'center', gap: '0.75rem'
-          }}>
-            <span style={{
-              fontSize: '0.72rem', fontWeight: 700, color: '#475569',
-              background: '#1e293b', padding: '0.1rem 0.45rem', borderRadius: '4px', whiteSpace: 'nowrap'
-            }}>
-              Step {currentStep + 1}/{steps.length}
-            </span>
-            <span style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.4 }}>
-              {activeStep.explanation}
-            </span>
+          <div className="stage-description">
+            <div className="stage-index">
+              STAGE 0{currentStep + 1} / 0{Math.max(1, steps.length)} &bull; {actionStyle.label.toUpperCase()}
+            </div>
+            <h2>{activeStep.name || actionStyle.label}</h2>
+            <p>{activeStep.explanation}</p>
           </div>
         )}
-
-        <div style={{
-          padding: '0.28rem 1.25rem', background: '#0b0e14',
-          borderBottom: '1px solid #1e2530', display: 'flex', gap: '1.2rem', flexWrap: 'wrap', alignItems: 'center'
-        }}>
-          {[['#ef4444', 'Breaking'], ['#3b82f6', 'Forming'], ['#facc15', 'Active atom'], [fx.color, 'Electron flow']].map(([c, label]) => (
-            <span key={label} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.67rem', color: '#64748b' }}>
-              <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, display: 'inline-block' }} />
-              {label}
-            </span>
-          ))}
-          <span style={{ fontSize: '0.67rem', color: '#334155', marginLeft: 'auto' }}>Drag · Scroll · Right-drag</span>
-        </div>
-
-        <div style={{ width: '100%', height: '440px' }}>
-          <Canvas shadows gl={{ antialias: true, alpha: false }}
-            camera={{ fov: 45, near: 0.1, far: 1000 }}
-            style={{ background: 'linear-gradient(145deg,#0f1117 0%,#141c2b 60%,#0a1020 100%)' }}>
-            <Suspense fallback={null}>
-              <Scene
-                initialGraph={initialGraph}
-                steps={steps}
-                currentStep={currentStep}
-                category={category}
-              />
-            </Suspense>
-          </Canvas>
-        </div>
-
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0.65rem 1.25rem', borderTop: '1px solid #1e2530', gap: '1rem', flexWrap: 'wrap'
-        }}>
-
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            {(reactionData?.reactants || []).map((mol, i) => (
-              <span key={mol.id} style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                {i > 0 && <span style={{ color: '#475569', fontSize: '0.85rem' }}>+</span>}
-                <span style={{
-                  fontSize: '0.78rem', fontFamily: 'monospace', fontWeight: 700,
-                  color: '#93c5fd', backgroundColor: '#1e3a5f',
-                  padding: '0.1rem 0.45rem', borderRadius: '4px'
-                }}>
-                  {mol.formula || mol.name}
-                </span>
+        <Canvas
+          shadows
+          gl={{ antialias: true, alpha: true }}
+          camera={{ fov: 45, near: 0.1, far: 1000 }}
+          style={{ width: '100%', height: '100%', position: 'absolute', inset: 0 }}
+        >
+          <Suspense fallback={null}>
+            <Scene
+              initialGraph={initialGraph}
+              steps={steps}
+              progress={progress}
+              category={category}
+            />
+          </Suspense>
+        </Canvas>
+        <div className="scene-bottom">
+          <div className="orbit-hint" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              <path d="M2 12h20" />
+            </svg>
+            <span>Drag to rotate &bull; Scroll to zoom &bull; Right-click to pan</span>
+          </div>
+          <div className="atom-legend">
+            {presentElements.map(el => (
+              <span key={el}>
+                <i style={{ background: elCfg(el).legendColor || elCfg(el).color }} />
+                {ELEMENT_NAMES[el] || el}
               </span>
             ))}
           </div>
-
-          {onStepChange && steps.length > 1 && (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <button onClick={() => goStep(-1)} disabled={locked || currentStep === 0}
-                style={{
-                  padding: '0.3rem 0.9rem', borderRadius: '6px', border: '1px solid #334155',
-                  background: locked || currentStep === 0 ? '#0f172a' : '#1e293b',
-                  color: locked || currentStep === 0 ? '#334155' : '#94a3b8',
-                  cursor: locked || currentStep === 0 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.78rem', fontWeight: 600, transition: 'all 0.2s'
-                }}>
-                ← Prev
-              </button>
-              <span style={{ fontSize: '0.72rem', color: '#475569', minWidth: '60px', textAlign: 'center' }}>
-                {currentStep + 1} / {steps.length}
-              </span>
-              <button onClick={() => goStep(1)} disabled={locked || currentStep === steps.length - 1}
-                style={{
-                  padding: '0.3rem 0.9rem', borderRadius: '6px', border: '1px solid #334155',
-                  background: locked || currentStep === steps.length - 1 ? '#0f172a' : '#1e293b',
-                  color: locked || currentStep === steps.length - 1 ? '#334155' : '#94a3b8',
-                  cursor: locked || currentStep === steps.length - 1 ? 'not-allowed' : 'pointer',
-                  fontSize: '0.78rem', fontWeight: 600, transition: 'all 0.2s'
-                }}>
-                Next →
-              </button>
-            </div>
-          )}
         </div>
       </div>
-    </div>
+      {}
+      <div className="simulation-controls">
+        <button className="play-button" type="button" onClick={onPlayToggle}>
+          {isPlaying ? (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+              </svg>
+              Pause
+            </>
+          ) : (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              {progress >= 0.99 ? 'Replay' : 'Play'}
+            </>
+          )}
+        </button>
+        <button
+          className="restart-button"
+          type="button"
+          onClick={onRestart || (() => onProgressChange?.(0))}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+          Restart
+        </button>
+        {}
+        <div className="timeline">
+          <input
+            type="range"
+            min="0"
+            max="1000"
+            value={Math.round(progress * 1000)}
+            onChange={(e) => onProgressChange?.(Number(e.target.value) / 1000)}
+            aria-label="Reaction timeline"
+            style={{
+              background: `linear-gradient(to right, #9e87ed ${progress * 100}%, rgba(255, 255, 255, 0.12) ${progress * 100}%)`,
+            }}
+          />
+          <div className="timeline-labels">
+            {steps.map((s, idx) => (
+              <span
+                key={idx}
+                className={idx === currentStep ? 'current' : ''}
+                onClick={() => onStepChange?.(idx)}
+                style={{ cursor: 'pointer' }}
+              >
+                {s.name || `Step ${idx + 1}`}
+              </span>
+            ))}
+          </div>
+        </div>
+        {}
+        <div className="time-display">
+          {`0${Math.floor(progress * 5.9)}:${String(Math.floor((progress * 5.9 * 100) % 100)).padStart(2, '0')}`}
+        </div>
+        {}
+        <div className="speed-selector" style={{ position: 'relative', marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+          <select
+            value={playbackSpeed}
+            onChange={(e) => onSpeedChange?.(Number(e.target.value))}
+            style={{
+              background: '#1e293b',
+              color: '#f8fafc',
+              border: '1px solid #334155',
+              padding: '4px 8px',
+              borderRadius: '6px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'none',
+              minWidth: '60px',
+              textAlign: 'center'
+            }}
+          >
+            <option value={0.25}>0.25x</option>
+            <option value={0.5}>0.5x</option>
+            <option value={1}>1.0x</option>
+            <option value={1.5}>1.5x</option>
+            <option value={2}>2.0x</option>
+            <option value={4}>4.0x</option>
+          </select>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '6px', pointerEvents: 'none', color: '#94a3b8' }}>
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+    </section>
   );
 }
-
 export default MoleculeVisualizer3D;

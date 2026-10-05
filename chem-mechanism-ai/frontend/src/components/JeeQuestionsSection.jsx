@@ -1,56 +1,43 @@
 import { useState } from 'react';
-
 export default function JeeQuestionsSection({ questions, reactionInput }) {
   const [userAnswers, setUserAnswers] = useState({});
   const [showExplanations, setShowExplanations] = useState({});
-
   if (!questions || !Array.isArray(questions) || questions.length === 0) {
     return null;
   }
-
   const handleSelectOption = (questionId, optionKey) => {
-    // Once answered, don't allow changing to preserve exam practice
     if (userAnswers[questionId]) return;
-
     setUserAnswers(prev => ({
       ...prev,
       [questionId]: optionKey,
     }));
-
-    // Auto show explanation once answered
     setShowExplanations(prev => ({
       ...prev,
       [questionId]: true,
     }));
   };
-
   const toggleExplanation = (questionId) => {
     setShowExplanations(prev => ({
       ...prev,
       [questionId]: !prev[questionId],
     }));
   };
-
   const handleReset = () => {
     setUserAnswers({});
     setShowExplanations({});
   };
-
-  // Calculate score
   const totalAnswered = Object.keys(userAnswers).length;
   const correctCount = questions.filter(q => userAnswers[q.id] === q.correctAnswer).length;
-
   return (
     <div style={{
       marginTop: '2rem',
-      background: 'rgba(255, 255, 255, 0.03)',
+      background: '#ffffff',
       borderRadius: '16px',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      border: '1px solid #d1fae5',
       padding: '1.5rem',
-      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-      backdropFilter: 'blur(10px)',
+      boxShadow: '0 8px 30px rgba(5, 96, 70, 0.05)',
     }}>
-      {/* Section Header */}
+      {}
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -58,7 +45,7 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
         flexWrap: 'wrap',
         gap: '0.8rem',
         paddingBottom: '1.2rem',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        borderBottom: '1px solid #f1f5f9',
         marginBottom: '1.5rem',
       }}>
         <div>
@@ -68,106 +55,101 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
               margin: 0,
               fontSize: '1.25rem',
               fontWeight: 800,
-              background: 'linear-gradient(135deg, #f59e0b, #ec4899, #8b5cf6)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              letterSpacing: '-0.01em',
+              color: '#064e3b',
+              letterSpacing: '-0.015em',
             }}>
-              JEE (Main & Advanced) Practice Questions
+              IIT-JEE Practice & Conceptual Questions
             </h2>
           </div>
-          <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem', color: '#94a3b8' }}>
-            Curated IIT-JEE questions directly derived from this reaction mechanism. Test your conceptual clarity!
+          <p style={{ margin: '0.35rem 0 0', fontSize: '0.84rem', color: '#64748b' }}>
+            Curated questions directly testing this reaction's mechanism, transition states, and reaction conditions.
           </p>
         </div>
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {totalAnswered > 0 && (
             <div style={{
-              padding: '0.35rem 0.85rem',
+              padding: '0.4rem 0.95rem',
               borderRadius: '999px',
-              fontSize: '0.78rem',
-              fontWeight: 700,
-              background: correctCount === questions.length ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.2)',
-              border: `1px solid ${correctCount === questions.length ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.4)'}`,
-              color: correctCount === questions.length ? '#34d399' : '#a5b4fc',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              background: correctCount === questions.length ? '#dcfce7' : '#ecfdf5',
+              border: `1px solid ${correctCount === questions.length ? '#86efac' : '#a7f3d0'}`,
+              color: correctCount === questions.length ? '#15803d' : '#047857',
             }}>
               Score: {correctCount}/{questions.length} ({Math.round((correctCount / questions.length) * 100)}%)
             </div>
           )}
-
           {totalAnswered > 0 && (
             <button
               onClick={handleReset}
               style={{
-                padding: '0.35rem 0.8rem',
+                padding: '0.4rem 0.85rem',
                 borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: '#cbd5e1',
-                fontSize: '0.75rem',
-                fontWeight: 600,
+                border: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                color: '#475569',
+                fontSize: '0.78rem',
+                fontWeight: 700,
                 cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
-              onMouseEnter={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.12)'}
-              onMouseLeave={(e) => e.target.style.background = 'rgba(255, 255, 255, 0.05)'}
+              onMouseEnter={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#0f172a'; }}
+              onMouseLeave={(e) => { e.target.style.background = '#f8fafc'; e.target.style.color = '#475569'; }}
             >
-              ↻ Reset
+              ↻ Reset Quiz
             </button>
           )}
         </div>
       </div>
-
-      {/* Question Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+      {}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.4rem' }}>
         {questions.map((q, qIndex) => {
           const userAnswer = userAnswers[q.id];
           const hasAnswered = !!userAnswer;
           const isCorrect = userAnswer === q.correctAnswer;
           const isExplanationOpen = showExplanations[q.id];
-
           return (
             <div
               key={q.id || qIndex}
               style={{
-                background: 'rgba(15, 23, 42, 0.65)',
-                borderRadius: '12px',
+                background: '#ffffff',
+                borderRadius: '14px',
                 border: hasAnswered
                   ? isCorrect
-                    ? '1px solid rgba(52, 211, 153, 0.35)'
-                    : '1px solid rgba(239, 68, 68, 0.35)'
-                  : '1px solid rgba(255, 255, 255, 0.08)',
-                padding: '1.25rem',
+                    ? '1.5px solid #10b981'
+                    : '1.5px solid #ef4444'
+                  : '1px solid #e2e8f0',
+                padding: '1.3rem',
+                boxShadow: hasAnswered && isCorrect
+                  ? '0 4px 16px rgba(16, 185, 129, 0.08)'
+                  : '0 2px 8px rgba(0, 0, 0, 0.02)',
                 transition: 'all 0.2s ease',
               }}
             >
-              {/* Card Meta Badges */}
+              {}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <span style={{
-                    padding: '0.15rem 0.55rem',
+                    padding: '0.2rem 0.6rem',
                     borderRadius: '6px',
                     fontSize: '0.72rem',
-                    fontWeight: 700,
-                    background: q.examType === 'JEE Advanced' ? 'rgba(236, 72, 153, 0.2)' : 'rgba(14, 165, 233, 0.2)',
-                    border: `1px solid ${q.examType === 'JEE Advanced' ? 'rgba(236, 72, 153, 0.4)' : 'rgba(14, 165, 233, 0.4)'}`,
-                    color: q.examType === 'JEE Advanced' ? '#f472b6' : '#38bdf8',
-                    letterSpacing: '0.04em',
+                    fontWeight: 800,
+                    background: q.examType === 'JEE Advanced' ? '#fdf2f8' : '#f0fdf4',
+                    border: `1px solid ${q.examType === 'JEE Advanced' ? '#fbcfe8' : '#bbf7d0'}`,
+                    color: q.examType === 'JEE Advanced' ? '#db2777' : '#047857',
+                    letterSpacing: '0.03em',
                   }}>
                     {q.examType || 'JEE Question'}
                   </span>
-
                   {q.examCitation && (
                     <span style={{
-                      padding: '0.15rem 0.55rem',
+                      padding: '0.2rem 0.6rem',
                       borderRadius: '6px',
                       fontSize: '0.72rem',
                       fontWeight: 700,
-                      background: 'rgba(245, 158, 11, 0.18)',
-                      border: '1px solid rgba(245, 158, 11, 0.4)',
-                      color: '#fcd34d',
-                      letterSpacing: '0.02em',
+                      background: '#fffbeb',
+                      border: '1px solid #fde68a',
+                      color: '#b45309',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.3rem',
@@ -176,71 +158,64 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                       {q.examCitation}
                     </span>
                   )}
-
                   {q.topic && (
                     <span style={{
-                      padding: '0.15rem 0.55rem',
+                      padding: '0.2rem 0.6rem',
                       borderRadius: '6px',
                       fontSize: '0.72rem',
                       fontWeight: 600,
-                      background: 'rgba(99, 102, 241, 0.15)',
-                      border: '1px solid rgba(99, 102, 241, 0.3)',
-                      color: '#c7d2fe',
+                      background: '#ecfdf5',
+                      border: '1px solid #a7f3d0',
+                      color: '#065f46',
                     }}>
                       {q.topic}
                     </span>
                   )}
                 </div>
-
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   {q.difficulty && (
                     <span style={{
-                      fontSize: '0.7rem',
-                      fontWeight: 600,
-                      color: q.difficulty === 'Advanced' ? '#f87171' : q.difficulty === 'Challenging' ? '#fbbf24' : '#34d399',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      color: q.difficulty === 'Advanced' ? '#dc2626' : q.difficulty === 'Challenging' ? '#d97706' : '#059669',
                     }}>
                       ● {q.difficulty}
                     </span>
                   )}
-                  <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                  <span style={{ fontSize: '0.74rem', color: '#94a3b8', fontWeight: 600 }}>
                     Q{qIndex + 1} of {questions.length}
                   </span>
                 </div>
               </div>
-
-              {/* Question Statement */}
+              {}
               <div style={{
-                fontSize: '0.92rem',
-                fontWeight: 600,
-                color: '#f1f5f9',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                color: '#0f172a',
                 lineHeight: 1.55,
                 marginBottom: '1rem',
               }}>
                 {q.question}
               </div>
-
-              {/* Options Grid */}
+              {}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
                 {(q.options || []).map(opt => {
                   const isThisSelected = userAnswer === opt.key;
                   const isThisCorrect = opt.key === q.correctAnswer;
-
-                  let optBg = 'rgba(255, 255, 255, 0.03)';
-                  let optBorder = 'rgba(255, 255, 255, 0.08)';
-                  let optColor = '#cbd5e1';
-
+                  let optBg = '#f8fafc';
+                  let optBorder = '#e2e8f0';
+                  let optColor = '#1e293b';
                   if (hasAnswered) {
                     if (isThisCorrect) {
-                      optBg = 'rgba(52, 211, 153, 0.15)';
-                      optBorder = 'rgba(52, 211, 153, 0.5)';
-                      optColor = '#a7f3d0';
+                      optBg = '#dcfce7';
+                      optBorder = '#10b981';
+                      optColor = '#064e3b';
                     } else if (isThisSelected && !isCorrect) {
-                      optBg = 'rgba(239, 68, 68, 0.15)';
-                      optBorder = 'rgba(239, 68, 68, 0.5)';
-                      optColor = '#fca5a5';
+                      optBg = '#fee2e2';
+                      optBorder = '#ef4444';
+                      optColor = '#991b1b';
                     }
                   }
-
                   return (
                     <button
                       key={opt.key}
@@ -249,23 +224,24 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                       style={{
                         display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '0.75rem',
-                        padding: '0.75rem 1rem',
+                        gap: '0.85rem',
+                        padding: '0.85rem 1.1rem',
                         borderRadius: '10px',
                         background: optBg,
                         border: `1px solid ${optBorder}`,
                         color: optColor,
                         textAlign: 'left',
                         cursor: hasAnswered ? 'default' : 'pointer',
-                        fontSize: '0.85rem',
+                        fontSize: '0.88rem',
                         fontFamily: 'inherit',
                         lineHeight: 1.45,
+                        fontWeight: hasAnswered && (isThisCorrect || isThisSelected) ? 700 : 500,
                         transition: 'all 0.15s ease',
                       }}
                       onMouseEnter={(e) => {
                         if (!hasAnswered) {
-                          e.currentTarget.style.background = 'rgba(99, 102, 241, 0.12)';
-                          e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.35)';
+                          e.currentTarget.style.background = '#ecfdf5';
+                          e.currentTarget.style.borderColor = '#10b981';
                         }
                       }}
                       onMouseLeave={(e) => {
@@ -276,21 +252,21 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                       }}
                     >
                       <span style={{
-                        width: 22,
-                        height: 22,
+                        width: 24,
+                        height: 24,
                         borderRadius: '50%',
                         flexShrink: 0,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        fontSize: '0.72rem',
-                        fontWeight: 700,
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
                         background: hasAnswered && isThisCorrect
                           ? '#10b981'
                           : hasAnswered && isThisSelected
                             ? '#ef4444'
-                            : 'rgba(255, 255, 255, 0.1)',
-                        color: '#fff',
+                            : '#e2e8f0',
+                        color: hasAnswered && (isThisCorrect || isThisSelected) ? '#ffffff' : '#334155',
                       }}>
                         {hasAnswered && isThisCorrect ? '✓' : hasAnswered && isThisSelected ? '✕' : opt.key}
                       </span>
@@ -299,10 +275,9 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                   );
                 })}
               </div>
-
-              {/* Status & Explanation Reveal */}
+              {}
               {hasAnswered && (
-                <div style={{ marginTop: '0.85rem' }}>
+                <div style={{ marginTop: '0.95rem' }}>
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -311,24 +286,23 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                     gap: '0.5rem',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ fontSize: '0.9rem' }}>{isCorrect ? '🎉' : '❌'}</span>
+                      <span style={{ fontSize: '1rem' }}>{isCorrect ? '🎉' : '❌'}</span>
                       <span style={{
-                        fontSize: '0.82rem',
-                        fontWeight: 700,
-                        color: isCorrect ? '#34d399' : '#f87171',
+                        fontSize: '0.85rem',
+                        fontWeight: 800,
+                        color: isCorrect ? '#047857' : '#dc2626',
                       }}>
                         {isCorrect ? 'Correct Answer!' : `Incorrect — Option (${q.correctAnswer}) is correct.`}
                       </span>
                     </div>
-
                     <button
                       onClick={() => toggleExplanation(q.id)}
                       style={{
                         background: 'transparent',
                         border: 'none',
-                        color: '#93c5fd',
-                        fontSize: '0.78rem',
-                        fontWeight: 600,
+                        color: '#059669',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
                         cursor: 'pointer',
                         padding: '0.2rem 0.5rem',
                         display: 'flex',
@@ -336,29 +310,28 @@ export default function JeeQuestionsSection({ questions, reactionInput }) {
                         gap: '0.3rem',
                       }}
                     >
-                      {isExplanationOpen ? 'Hide Solution ▲' : 'View JEE Solution ▼'}
+                      {isExplanationOpen ? 'Hide Solution ▲' : 'View JEE Mechanism Solution ▼'}
                     </button>
                   </div>
-
                   {isExplanationOpen && (
                     <div style={{
-                      marginTop: '0.75rem',
-                      padding: '1rem',
-                      borderRadius: '8px',
-                      background: 'rgba(30, 41, 59, 0.5)',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      fontSize: '0.82rem',
-                      color: '#cbd5e1',
-                      lineHeight: 1.5,
+                      marginTop: '0.85rem',
+                      padding: '1.1rem',
+                      borderRadius: '10px',
+                      background: '#f0fdf4',
+                      border: '1px solid #bbf7d0',
+                      fontSize: '0.84rem',
+                      color: '#14532d',
+                      lineHeight: 1.55,
                     }}>
                       {q.conceptTested && (
-                        <div style={{ marginBottom: '0.5rem' }}>
-                          <span style={{ fontWeight: 700, color: '#f59e0b' }}>Key Concept: </span>
-                          <span style={{ color: '#fed7aa' }}>{q.conceptTested}</span>
+                        <div style={{ marginBottom: '0.55rem' }}>
+                          <span style={{ fontWeight: 800, color: '#065f46' }}>Key Concept Tested: </span>
+                          <span style={{ color: '#166534', fontWeight: 600 }}>{q.conceptTested}</span>
                         </div>
                       )}
                       <div>
-                        <span style={{ fontWeight: 700, color: '#38bdf8' }}>Mechanism & Solution: </span>
+                        <span style={{ fontWeight: 800, color: '#047857' }}>Mechanism & Chemistry Solution: </span>
                         <span>{q.explanation}</span>
                       </div>
                     </div>

@@ -1,23 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-
 function buildInitialGraph(reactionData) {
   const atoms = [];
   const bonds = [];
   const molecules = [];
-
   const reactants = reactionData?.reactants || [];
-
   reactants.forEach((mol, molIdx) => {
     const molAtoms = mol.atoms || [];
     const molBonds = mol.bonds || [];
-
     molecules.push({
       id: mol.id || `R${molIdx + 1}`,
       name: mol.name || '',
       formula: mol.formula || '',
       atomIds: molAtoms.map((a) => a.id),
     });
-
     molAtoms.forEach((a) => {
       if (!atoms.some((existing) => existing.id === a.id)) {
         atoms.push({
@@ -28,7 +23,6 @@ function buildInitialGraph(reactionData) {
         });
       }
     });
-
     molBonds.forEach((b) => {
       const alreadyExists = bonds.some(
         (existing) =>
@@ -47,37 +41,26 @@ function buildInitialGraph(reactionData) {
       }
     });
   });
-
   return { atoms, bonds, molecules };
 }
-
 function computeOutAngles(count, inAngle) {
   if (count === 0) return [];
-
   if (inAngle === null) {
-    
     if (count === 1) return [0];
     if (count === 2) return [0, Math.PI];
     if (count === 3) return [0, (-2 * Math.PI) / 3, (2 * Math.PI) / 3];
     return Array.from({ length: count }, (_, i) => (Math.PI / 2) * i);
   }
-
-  
   const fwd = inAngle;
   if (count === 1) return [fwd];
-
-  
   const spread = Math.min((count - 1) * (Math.PI / 3), Math.PI * 0.85);
   const step   = count > 1 ? spread / (count - 1) : 0;
   return Array.from({ length: count }, (_, i) => fwd - spread / 2 + i * step);
 }
-
 function computeLayout(graph, width = 640, height = 300) {
   const positions = {};
   const { atoms, bonds, molecules } = graph;
   if (atoms.length === 0) return positions;
-
-  
   const adj = {};
   atoms.forEach(a => { adj[a.id] = []; });
   bonds.forEach(b => {
@@ -86,25 +69,20 @@ function computeLayout(graph, width = 640, height = 300) {
       adj[b.atom2].push(b.atom1);
     }
   });
-
   const BOND_LEN   = 72;  
   const H_BOND_LEN = 46;  
   const numMols    = Math.max(1, molecules.length);
   const molWidth   = width / numMols;
   const isHeavy    = id => atoms.find(a => a.id === id)?.element !== 'H';
-
   molecules.forEach((mol, molIdx) => {
     const cx = (molIdx + 0.5) * molWidth;
     const cy = height / 2;
     const molAtoms = atoms.filter(a => a.moleculeId === mol.id);
     if (!molAtoms.length) return;
-
     if (molAtoms.length === 1) {
       positions[molAtoms[0].id] = { x: cx, y: cy };
       return;
     }
-
-    
     const heavyCandidates = molAtoms.filter(a => a.element !== 'H');
     const candidates = heavyCandidates.length > 0 ? heavyCandidates : molAtoms;
     const root = candidates.reduce((best, a) => {
@@ -112,24 +90,18 @@ function computeLayout(graph, width = 640, height = 300) {
       const bestDeg = (adj[best.id] || []).filter(isHeavy).length;
       return deg > bestDeg ? a : best;
     });
-
     const visited = new Set([root.id]);
     positions[root.id] = { x: cx, y: cy };
-    
     const queue = [{ id: root.id, inAngle: null }];
-
     while (queue.length > 0) {
       const { id, inAngle } = queue.shift();
       const pos = positions[id];
       const unvisited = (adj[id] || []).filter(nId => !visited.has(nId));
       if (!unvisited.length) continue;
-
-      
       const sorted = [
         ...unvisited.filter(isHeavy),
         ...unvisited.filter(nId => !isHeavy(nId)),
       ];
-
       const outAngles = computeOutAngles(sorted.length, inAngle);
       sorted.forEach((nId, i) => {
         visited.add(nId);
@@ -145,16 +117,13 @@ function computeLayout(graph, width = 640, height = 300) {
       });
     }
   });
-
   return positions;
 }
-
 function buildProductGraph(reactionData) {
   const atoms     = [];
   const bonds     = [];
   const molecules = [];
   const products  = reactionData?.products || [];
-
   products.forEach((mol, molIdx) => {
     const molId = mol.id || `P${molIdx + 1}`;
     molecules.push({
@@ -190,42 +159,30 @@ function buildProductGraph(reactionData) {
       }
     });
   });
-
   return { atoms, bonds, molecules };
 }
-
 function applyMechanismSteps(initialGraph, steps, currentStep) {
   const atoms = initialGraph.atoms.map((a) => ({ ...a }));
   let bonds = initialGraph.bonds.map((b) => ({ ...b }));
-
   const activeStepData = steps[currentStep] || null;
-
   for (let s = 0; s <= currentStep; s++) {
     const stepObj = steps[s];
     if (!stepObj) continue;
-
     const { action, targets } = stepObj;
     const isCurrent = s === currentStep;
-
     const findBondPredicate = (targetRef, t) => {
       return (bond) => {
         if (!bond) return false;
         const normTarget = typeof targetRef === 'string' ? targetRef.trim() : '';
-
-        
         if (normTarget && (bond.id === normTarget || bond.id?.trim() === normTarget)) {
           return true;
         }
-
-        
         if (normTarget && (
           `${bond.atom1}-${bond.atom2}` === normTarget ||
           `${bond.atom2}-${bond.atom1}` === normTarget
         )) {
           return true;
         }
-
-        
         if (t?.atom1 && t?.atom2) {
           if (
             (bond.atom1 === t.atom1 && bond.atom2 === t.atom2) ||
@@ -234,8 +191,6 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
             return true;
           }
         }
-
-        
         if (t?.from_atom && t?.to_atom) {
           if (
             (bond.atom1 === t.from_atom && bond.atom2 === t.to_atom) ||
@@ -244,8 +199,6 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
             return true;
           }
         }
-
-        
         if (normTarget) {
           const refBond = initialGraph.bonds.find((b) => b.id === normTarget || b.id?.trim() === normTarget);
           if (refBond) {
@@ -257,8 +210,6 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
             }
           }
         }
-
-        
         if (normTarget && normTarget.includes('-')) {
           const [e1, e2] = normTarget.split('-').map((x) => x.trim());
           const a1 = initialGraph.atoms.find((a) => a.id === bond.atom1);
@@ -272,11 +223,9 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
             }
           }
         }
-
         return false;
       };
     };
-
     if (action === 'BOND_BREAK') {
       const targetBond =
         targets?.bond ||
@@ -285,9 +234,7 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         targets?.bondId ||
         targets?.bond_broken ||
         targets?.broken_bond;
-
       const matchesBond = findBondPredicate(targetBond, targets);
-
       if (isCurrent) {
         bonds = bonds.map((bond) =>
           matchesBond(bond)
@@ -299,14 +246,12 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
       }
     } else if (action === 'BOND_FORM') {
       const { atom1, atom2, order = 1 } = targets || {};
-
       if (atom1 && atom2) {
         const existingIdx = bonds.findIndex(
           (b) =>
             (b.atom1 === atom1 && b.atom2 === atom2) ||
             (b.atom1 === atom2 && b.atom2 === atom1)
         );
-
         if (existingIdx >= 0) {
           bonds[existingIdx] = {
             ...bonds[existingIdx],
@@ -324,17 +269,12 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
-
     else if (action === 'ELECTRON_PAIR_MOVE') {
       const fromBond = targets?.from_bond || targets?.bond;
       const toAtom = targets?.to_atom;
-
-      
       const hasSubsequentBondBreak = steps.some(
         (st, idx) => idx > s && st.action === 'BOND_BREAK'
       );
-
-      
       if (!hasSubsequentBondBreak && fromBond) {
         const matchesBond = findBondPredicate(fromBond, targets);
         if (isCurrent) {
@@ -347,27 +287,18 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
           bonds = bonds.filter((bond) => !matchesBond(bond));
         }
       }
-
-      
-      
-      
       if (toAtom) {
         const atom = atoms.find((a) => a.id === toAtom);
-
         if (atom && typeof atom.charge === 'number') {
           atom.charge = -1;
         }
       }
     }
-
     else if (action === 'PROTON_TRANSFER') {
       const hydrogenAtom = targets?.hydrogen_atom;
       const fromAtom = targets?.from_atom;
       const toAtom = targets?.to_atom;
-
       if (!hydrogenAtom) continue;
-
-      
       if (fromAtom) {
         bonds = bonds.filter(
           (bond) =>
@@ -377,15 +308,12 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
             )
         );
       }
-
-      
       if (toAtom) {
         const alreadyExists = bonds.some(
           (bond) =>
             (bond.atom1 === toAtom && bond.atom2 === hydrogenAtom) ||
             (bond.atom1 === hydrogenAtom && bond.atom2 === toAtom)
         );
-
         if (!alreadyExists) {
           bonds.push({
             id: `${toAtom}-${hydrogenAtom}`,
@@ -397,37 +325,19 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
-
     else if (action === 'BASE_ABSTRACTION') {
-      
-      
-      
-      
-      
-      
     }
-
     else if (action === 'NUCLEOPHILE_ATTACK') {
-      
-      
-      
     }
-
     else if (action === 'ELECTROPHILE_ATTACK') {
-      
-      
-      
-      
       const { pi_atom1, pi_atom2 } = targets || {};
       if (pi_atom1 && pi_atom2) {
         const matchesPiBond = (b) =>
           (b.atom1 === pi_atom1 && b.atom2 === pi_atom2) ||
           (b.atom1 === pi_atom2 && b.atom2 === pi_atom1);
-
         if (isCurrent) {
           bonds = bonds.map((b) => matchesPiBond(b) ? { ...b, status: 'breaking' } : b);
         } else {
-          
           bonds = bonds.map((b) => {
             if (matchesPiBond(b) && b.order === 2) {
               return { ...b, order: 1, status: undefined };
@@ -437,23 +347,16 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
-
     else if (action === 'CHARGE_CHANGE') {
-      
       const { atom: atomId, new_charge } = targets || {};
       if (atomId && typeof new_charge === 'number') {
         const a = atoms.find((a) => a.id === atomId);
         if (a) a.charge = new_charge;
       }
     }
-
     else if (action === 'REARRANGEMENT') {
-      
-      
-      
       const { migrating_atom, from_atom, to_atom } = targets || {};
       if (migrating_atom && from_atom && to_atom) {
-        
         bonds = bonds.filter(
           (b) =>
             !(
@@ -461,8 +364,6 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
               (b.atom1 === from_atom && b.atom2 === migrating_atom)
             )
         );
-
-        
         const alreadyExists = bonds.some(
           (b) =>
             (b.atom1 === migrating_atom && b.atom2 === to_atom) ||
@@ -479,16 +380,9 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         }
       }
     }
-
     else if (action === 'RESONANCE') {
-      
-      
-      
     }
-
     else if (action === 'OXIDATION_REDUCTION') {
-      
-      
       const { oxidized_atom, reduced_atom } = targets || {};
       if (oxidized_atom) {
         const a = atoms.find((a) => a.id === oxidized_atom);
@@ -499,9 +393,7 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
         if (a && typeof a.charge === 'number') a.charge -= 1;
       }
     }
-
   } 
-
   console.log('=== MECHANISM DEBUG ===');
   console.log('Current step:', currentStep + 1);
   console.log('Active action:', activeStepData?.action);
@@ -515,7 +407,6 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
       status: b.status,
     }))
   );
-
   return {
     atoms,
     bonds,
@@ -524,10 +415,8 @@ function applyMechanismSteps(initialGraph, steps, currentStep) {
 }
 function renderMechanismArrow(activeStepData, atomPositions, bonds) {
   if (!activeStepData || !atomPositions) return null;
-
   const { action, targets } = activeStepData;
   if (!targets) return null;
-
   if (action === 'NUCLEOPHILE_ATTACK') {
     const nuc = atomPositions[targets.nucleophile_atom];
     const elec = atomPositions[targets.electrophile_atom];
@@ -539,7 +428,6 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = nuc.x + leftX * 16;
       const startY = nuc.y - 10;
       const endX = elec.x + leftX * 18;
@@ -548,14 +436,12 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const midY = (nuc.y + elec.y) / 2;
       const ctrlX = midX + leftX * 50;
       const ctrlY = midY + leftY * 50;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#2563eb',
       };
     }
   }
-
   if (action === 'BASE_ABSTRACTION') {
     const base = atomPositions[targets.base_atom];
     const h = atomPositions[targets.hydrogen_atom];
@@ -567,7 +453,6 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = base.x + leftX * 16;
       const startY = base.y - 10;
       const endX = h.x + leftX * 16;
@@ -576,14 +461,12 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const midY = (base.y + h.y) / 2;
       const ctrlX = midX + leftX * 45;
       const ctrlY = midY + leftY * 45;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#8b5cf6',
       };
     }
   }
-
   if (action === 'ELECTRON_PAIR_MOVE') {
     const fromBondId = targets.from_bond || targets.bond;
     const toAtomId = targets.to_atom;
@@ -596,13 +479,11 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
         `${b.atom1}-${b.atom2}` === normBondId ||
         `${b.atom2}-${b.atom1}` === normBondId
     );
-
     if (dest && bond && atomPositions[bond.atom1] && atomPositions[bond.atom2]) {
       const a1 = atomPositions[bond.atom1];
       const a2 = atomPositions[bond.atom2];
       const midX = (a1.x + a2.x) / 2;
       const midY = (a1.y + a2.y) / 2;
-
       const dx = dest.x - midX;
       const dy = dest.y - midY;
       const dist = Math.hypot(dx, dy) || 1;
@@ -610,27 +491,23 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = midX + leftX * 6;
       const startY = midY + leftY * 6;
       const endX = dest.x + leftX * 16 - ux * 4;
       const endY = dest.y + leftY * 16 - uy * 4;
       const ctrlX = (midX + dest.x) / 2 + leftX * 30;
       const ctrlY = (midY + dest.y) / 2 + leftY * 30;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#2563eb',
       };
     }
   }
-
   if (action === 'PROTON_TRANSFER') {
     const fromId = targets.from_atom || targets.atom1;
     const toId = targets.to_atom || targets.atom2;
     const fromAtom = atomPositions[fromId];
     const toAtom = atomPositions[toId];
-
     if (fromAtom && toAtom) {
       const dx = toAtom.x - fromAtom.x;
       const dy = toAtom.y - fromAtom.y;
@@ -639,7 +516,6 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = fromAtom.x + leftX * 16;
       const startY = fromAtom.y - 10;
       const endX = toAtom.x + leftX * 18;
@@ -648,21 +524,17 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const midY = (fromAtom.y + toAtom.y) / 2;
       const ctrlX = midX + leftX * 50;
       const ctrlY = midY + leftY * 50;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#10b981',
       };
     }
   }
-
   if (action === 'ELECTROPHILE_ATTACK') {
-    
     const { electrophile_atom, pi_atom1, pi_atom2 } = targets;
     const elec = atomPositions[electrophile_atom];
     const pa1 = atomPositions[pi_atom1];
     const pa2 = atomPositions[pi_atom2];
-
     if (elec && pa1 && pa2) {
       const midX = (pa1.x + pa2.x) / 2;
       const midY = (pa1.y + pa2.y) / 2;
@@ -673,23 +545,19 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = midX + leftX * 8;
       const startY = midY + leftY * 8;
       const endX = elec.x - ux * 14;
       const endY = elec.y - uy * 14;
       const ctrlX = (midX + elec.x) / 2 + leftX * 40;
       const ctrlY = (midY + elec.y) / 2 + leftY * 40;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#f97316', 
       };
     }
   }
-
   if (action === 'CHARGE_CHANGE') {
-    
     const { atom: atomId } = targets;
     const pos = atomPositions[atomId];
     if (pos) {
@@ -700,13 +568,10 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       };
     }
   }
-
   if (action === 'REARRANGEMENT') {
-    
     const { migrating_atom, from_atom, to_atom } = targets;
     const fromPos = atomPositions[from_atom];
     const toPos = atomPositions[to_atom];
-
     if (fromPos && toPos) {
       const dx = toPos.x - fromPos.x;
       const dy = toPos.y - fromPos.y;
@@ -715,26 +580,22 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = fromPos.x + leftX * 14;
       const startY = fromPos.y + leftY * 14;
       const endX = toPos.x + leftX * 14 - ux * 14;
       const endY = toPos.y + leftY * 14 - uy * 14;
       const ctrlX = (fromPos.x + toPos.x) / 2 + leftX * 55;
       const ctrlY = (fromPos.y + toPos.y) / 2 + leftY * 55;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#f59e0b', 
       };
     }
   }
-
   if (action === 'RESONANCE') {
     const { from_atom, to_atom } = targets;
     const fromPos = atomPositions[from_atom];
     const toPos = atomPositions[to_atom];
-
     if (fromPos && toPos) {
       const dx = toPos.x - fromPos.x;
       const dy = toPos.y - fromPos.y;
@@ -743,26 +604,22 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = fromPos.x + leftX * 12;
       const startY = fromPos.y + leftY * 12;
       const endX = toPos.x + leftX * 12 - ux * 14;
       const endY = toPos.y + leftY * 12 - uy * 14;
       const ctrlX = (fromPos.x + toPos.x) / 2 + leftX * 42;
       const ctrlY = (fromPos.y + toPos.y) / 2 + leftY * 42;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#14b8a6', 
       };
     }
   }
-
   if (action === 'OXIDATION_REDUCTION') {
     const { oxidized_atom, reduced_atom } = targets;
     const fromPos = atomPositions[oxidized_atom];
     const toPos = atomPositions[reduced_atom];
-
     if (fromPos && toPos) {
       const dx = toPos.x - fromPos.x;
       const dy = toPos.y - fromPos.y;
@@ -771,45 +628,36 @@ function renderMechanismArrow(activeStepData, atomPositions, bonds) {
       const uy = dy / dist;
       const leftX = uy;
       const leftY = -ux;
-
       const startX = fromPos.x + leftX * 14;
       const startY = fromPos.y + leftY * 14;
       const endX = toPos.x + leftX * 14 - ux * 14;
       const endY = toPos.y + leftY * 14 - uy * 14;
       const ctrlX = (fromPos.x + toPos.x) / 2 + leftX * 50;
       const ctrlY = (fromPos.y + toPos.y) / 2 + leftY * 50;
-
       return {
         path: `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`,
         color: '#ef4444', 
       };
     }
   }
-
   return null;
 }
-
 function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
   const reactionType = reactionData?.reaction?.type;
   const steps = reactionData?.steps || [];
   const currentStepData = steps[currentStep] || steps[0];
-
   const initialGraph = useMemo(() => {
     return buildInitialGraph(reactionData);
   }, [reactionData]);
-
   const atomPositions = useMemo(() => {
   return computeLayout(initialGraph, 640, 290);
 }, [initialGraph]);
-
   const { atoms: currentAtoms, bonds: currentBonds } = useMemo(() => {
     return applyMechanismSteps(initialGraph, steps, currentStep);
   }, [initialGraph, steps, currentStep]);
-
   const mechanismArrow = useMemo(() => {
     return renderMechanismArrow(currentStepData, atomPositions, currentBonds);
   }, [currentStepData, atomPositions, currentBonds]);
-
   const formatAction = (action) => {
     if (!action) return 'Mechanism Step';
     return action
@@ -817,16 +665,13 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
       .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
       .join(' ');
   };
-
   const stepNumber = currentStepData?.step || currentStep + 1;
   const stepActionText = formatAction(currentStepData?.action);
   const stepExplanation = currentStepData?.explanation;
-
   const activeAtomIds = useMemo(() => {
     const ids = new Set();
     if (!currentStepData?.targets) return ids;
     const t = currentStepData.targets;
-    
     const fields = [
       'nucleophile_atom', 'electrophile_atom',  
       'base_atom', 'hydrogen_atom',              
@@ -840,14 +685,10 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
     fields.forEach((f) => { if (t[f]) ids.add(t[f]); });
     return ids;
   }, [currentStepData]);
-
   const products    = reactionData?.products || [];
   const isLastStep  = steps.length > 0 && currentStep === steps.length - 1;
-
-  
   const productGraph     = useMemo(() => buildProductGraph(reactionData), [reactionData]);
   const productPositions = useMemo(() => computeLayout(productGraph, 640, 220), [productGraph]);
-
   return (
     <div style={{
       width: '100%',
@@ -893,7 +734,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
           animation: fadeSlideUp 0.5s ease-out forwards;
         }
       `}</style>
-
       <div style={{
         display: 'flex',
         alignItems: 'center',
@@ -916,7 +756,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
           </span>
         )}
       </div>
-
       <h3 style={{
         fontSize: '1rem',
         fontWeight: 600,
@@ -925,7 +764,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
       }}>
         Step {stepNumber}: {stepActionText}
       </h3>
-
       {stepExplanation && (
         <p style={{
           fontSize: '0.92rem',
@@ -936,7 +774,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
           {stepExplanation}
         </p>
       )}
-
       <div style={{
         width: '100%',
         backgroundColor: '#f8fafc',
@@ -1017,7 +854,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#ef4444" />
             </marker>
           </defs>
-
           {initialGraph.molecules.length > 1 &&
             initialGraph.molecules.slice(0, -1).map((mol, idx) => {
               const plusX = ((idx + 1) / initialGraph.molecules.length) * 640;
@@ -1035,24 +871,20 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                 </text>
               );
             })}
-
           {currentBonds.map((bond) => {
             const p1 = atomPositions[bond.atom1];
             const p2 = atomPositions[bond.atom2];
             if (!p1 || !p2) return null;
-
             const isBreaking = bond.status === 'breaking';
             const isForming = bond.status === 'forming';
             const stroke = isBreaking ? '#ef4444' : isForming ? '#2563eb' : '#94a3b8';
             const strokeWidth = isForming ? 3 : isBreaking ? 2 : 2.5;
-
             if (bond.order === 2) {
               const dx = p2.x - p1.x;
               const dy = p2.y - p1.y;
               const dist = Math.hypot(dx, dy) || 1;
               const px = (-dy / dist) * 3.5;
               const py = (dx / dist) * 3.5;
-
               return (
                 <g key={bond.id}>
                   <line
@@ -1076,7 +908,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                 </g>
               );
             }
-
             return (
               <line
                 key={bond.id}
@@ -1091,7 +922,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               />
             );
           })}
-
           {mechanismArrow && (
             <path
               key={`arrow-${currentStep}`}
@@ -1113,11 +943,9 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               className="animated-mechanism-arrow"
             />
           )}
-
           {currentAtoms.map((atom) => {
             const pos = atomPositions[atom.id];
             if (!pos) return null;
-
             const isH  = atom.element === 'H';
             const isC  = atom.element === 'C';
             const isBr = atom.element === 'Br';
@@ -1129,9 +957,7 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
             const isS  = atom.element === 'S';
             const isP  = atom.element === 'P';
             const isMetal = ['Na', 'K', 'Fe', 'Cu', 'Zn', 'Mg', 'Al', 'Ca', 'Li'].includes(atom.element);
-
             const isActive = activeAtomIds.has(atom.id);
-
             const radius = isH ? 13 : 17;
             const fill = isC ? '#f1f5f9'
               : isBr  ? '#fef3c7'
@@ -1144,7 +970,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               : isP   ? '#fff7ed'
               : isMetal ? '#f0f9ff'
               : '#ffffff';
-
             const stroke = isC ? '#64748b'
               : isBr  ? '#d97706'
               : isO   ? '#ef4444'
@@ -1156,7 +981,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               : isP   ? '#ea580c'
               : isMetal ? '#0369a1'
               : '#cbd5e1';
-
             const strokeWidth = isH ? 1.5 : 2;
             const textColor = isC ? '#0f172a'
               : isBr  ? '#92400e'
@@ -1169,11 +993,9 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               : isP   ? '#9a3412'
               : isMetal ? '#075985'
               : '#475569';
-
             const fontSize = isH ? 11 : 13;
             const fontWeight = isH ? 600 : 700;
             const dy = isH ? 4 : 5;
-
             return (
               <g id={atom.id} key={atom.id} transform={`translate(${pos.x}, ${pos.y})`}>
                 {isActive && (
@@ -1186,7 +1008,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                     className="pulsing-atom-halo"
                   />
                 )}
-
                 <circle r={radius} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />
                 <text
                   textAnchor="middle"
@@ -1197,7 +1018,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                 >
                   {atom.element}
                 </text>
-
                 {atom.charge !== 0 && (
                   <g className="charge-pop-in">
                     <circle
@@ -1223,7 +1043,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
           })}
         </svg>
       </div>
-
       {}
       {isLastStep && productGraph.atoms.length > 0 && (
         <div
@@ -1260,7 +1079,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               </span>
             )}
           </div>
-
           {}
           {productGraph.molecules.length > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '0.1rem' }}>
@@ -1278,7 +1096,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               ))}
             </div>
           )}
-
           {}
           <div style={{
             width: '100%', backgroundColor: '#ffffff',
@@ -1295,7 +1112,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                       textAnchor="middle" fill="#94a3b8" fontSize="22" fontWeight="400">+</text>
                   );
                 })}
-
               {}
               {productGraph.bonds.map((bond) => {
                 const p1 = productPositions[bond.atom1];
@@ -1303,7 +1119,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                 if (!p1 || !p2) return null;
                 const stroke = '#16a34a';  
                 const sw = bond.order === 2 ? 2 : 2.5;
-
                 if (bond.order === 2) {
                   const dx = p2.x - p1.x, dy = p2.y - p1.y;
                   const dist = Math.hypot(dx, dy) || 1;
@@ -1320,7 +1135,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                     stroke={stroke} strokeWidth={sw} />
                 );
               })}
-
               {}
               {productGraph.atoms.map((atom) => {
                 const pos = productPositions[atom.id];
@@ -1336,7 +1150,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                 const isS    = atom.element === 'S';
                 const isP    = atom.element === 'P';
                 const isMetal = ['Na','K','Fe','Cu','Zn','Mg','Al','Ca','Li'].includes(atom.element);
-
                 const radius = isH ? 13 : 17;
                 const fill = isC ? '#f0fdf4' : isBr ? '#fef3c7' : isO ? '#fee2e2'
                   : isN ? '#e0e7ff' : isCl ? '#dcfce7' : isF ? '#ecfdf5'
@@ -1350,7 +1163,6 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
                   : isN ? '#1e40af' : isCl ? '#166534' : isF ? '#065f46'
                   : isI ? '#5b21b6' : isS ? '#92400e' : isP ? '#9a3412'
                   : isMetal ? '#075985' : '#4b7c5e';
-
                 return (
                   <g key={atom.id} transform={`translate(${pos.x}, ${pos.y})`}>
                     <circle r={radius} fill={fill} stroke={stroke} strokeWidth={isH ? 1.5 : 2} />
@@ -1373,16 +1185,13 @@ function MoleculeVisualizer({ reactionData, currentStep = 0 }) {
               })}
             </svg>
           </div>
-
           {}
           <p style={{ margin: '0.6rem 0 0', fontSize: '0.8rem', color: '#4b7c5e', lineHeight: 1.5 }}>
             <strong>Reaction:</strong> {reactionData?.reaction?.input}
           </p>
         </div>
       )}
-
     </div>
   );
 }
-
 export default MoleculeVisualizer;

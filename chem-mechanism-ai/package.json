@@ -13,5 +13,8 @@
     "organic-chemistry"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "strip-comments": "^2.0.1"
+  }
 }
