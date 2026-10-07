@@ -53,8 +53,12 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
         max_tokens: 8192,
         messages,
       });
-      rawContent = completion.choices?.[0]?.message?.content?.trim();
-      if (!rawContent) throw new Error('Groq returned an empty response.');
+      let msg = completion.choices?.[0]?.message;
+      rawContent = msg?.content?.trim();
+      if (!rawContent && msg?.reasoning) {
+        rawContent = msg.reasoning.trim();
+      }
+      if (!rawContent) throw new Error('Groq returned an empty response (both content and reasoning were empty).');
     } catch (apiError) {
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }
@@ -90,26 +94,34 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     });
   }
   try {
-    const pubchemResult = await validateWithPubChem(parsed);
+    const [pubchemResult, jeeQuestions] = await Promise.all([
+      validateWithPubChem(parsed).catch(err => {
+        console.warn(`[PubChem] Error: ${err.message}`);
+        return { warnings: ['PubChem lookup unavailable'], enrichments: {} };
+      }),
+      generateJeeQuestions(reaction, parsed).catch(err => {
+        console.warn(`[JEE] Error: ${err.message}`);
+        return [];
+      })
+    ]);
+
     parsed._pubchem = {
-      verified: pubchemResult.warnings.length === 0,
-      warnings: pubchemResult.warnings,
-      enrichments: pubchemResult.enrichments,
+      verified: pubchemResult.warnings?.length === 0,
+      warnings: pubchemResult.warnings || [],
+      enrichments: pubchemResult.enrichments || {},
     };
-    if (pubchemResult.warnings.length > 0) {
-      pubchemResult.warnings.forEach(w => console.log(`  [PubChem] ⚠ ${w}`));
+    if (parsed._pubchem.warnings.length > 0) {
+      parsed._pubchem.warnings.forEach(w => console.log(`  [PubChem] ⚠ ${w}`));
     } else {
       console.log(`[PubChem] ✓ All molecules verified.`);
     }
-  } catch (pubchemErr) {
-    parsed._pubchem = { verified: false, warnings: ['PubChem lookup unavailable'], enrichments: {} };
-  }
-  try {
-    parsed.jeeQuestions = await generateJeeQuestions(reaction, parsed);
-    console.log(`[JEE] Generated ${parsed.jeeQuestions?.length || 0} question(s).`);
-  } catch (jeeErr) {
-    console.warn(`[JEE] Error: ${jeeErr.message}`);
-    parsed.jeeQuestions = [];
+
+    parsed.jeeQuestions = jeeQuestions;
+    console.log(`[JEE] Generated ${jeeQuestions?.length || 0} question(s).`);
+  } catch (err) {
+    console.error(`[ParallelTasks] Critical error: ${err.message}`);
+    if (!parsed._pubchem) parsed._pubchem = { verified: false, warnings: [], enrichments: {} };
+    if (!parsed.jeeQuestions) parsed.jeeQuestions = [];
   }
   parsed._agentTrace = {
     attempts,

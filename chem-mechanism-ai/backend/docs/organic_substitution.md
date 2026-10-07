@@ -28,10 +28,10 @@ Bonds in CH3Br: bond-C1-Br1 (C-Br, order 1), bond-C1-H1 (C-H, order 1), bond-C1-
 Atoms in OH-: O1 (oxygen, charge -1), H4 (hydrogen)
 Bonds in OH-: bond-O1-H4 (O-H, order 1)
 Mechanism steps:
-1. NUCLEOPHILE_ATTACK: nucleophile_atom=O1, electrophile_atom=C1. The oxygen of hydroxide attacks the electrophilic carbon C1 from the backside (180 degrees from Br). This is the rate-determining step.
-2. BOND_FORM: atom1=O1, atom2=C1, order=1. New C-O bond forms as oxygen donates electrons to carbon.
-3. BOND_BREAK: bond=bond-C1-Br1. The C-Br bond breaks heterolytically, electrons go to bromine.
-4. CHARGE_CHANGE: atom=Br1, new_charge=-1. Bromine becomes bromide anion Br-.
+1. BOND_BREAK: bond=bond-C1-Br1. The C-Br bond breaks as the leaving group detaches, clearing space.
+2. CHARGE_CHANGE: atom=Br1, new_charge=-1. Bromine becomes bromide anion Br-.
+3. NUCLEOPHILE_ATTACK: nucleophile_atom=O1, electrophile_atom=C1. The oxygen of hydroxide now approaches the electrophilic carbon C1.
+4. BOND_FORM: atom1=O1, atom2=C1, order=1. The new C-O bond forms as the atoms get close.
 
 ### Example: Chloromethane + Hydroxide (SN2)
 Reaction name: SN2 substitution of chloromethane

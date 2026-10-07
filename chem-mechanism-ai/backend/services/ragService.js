@@ -56,6 +56,7 @@ CRITICAL RULES:
 - Every bond ID in BOND_BREAK must exist in a reactant's bonds array
 - All unused targets fields must be null (not omitted)
 - The "action" field must be exactly one of: NUCLEOPHILE_ATTACK, ELECTROPHILE_ATTACK, BASE_ABSTRACTION, BOND_BREAK, BOND_FORM, ELECTRON_PAIR_MOVE, PROTON_TRANSFER, CHARGE_CHANGE, REARRANGEMENT, RESONANCE, OXIDATION_REDUCTION
+- VISUALIZER RULE: To prevent visual glitches in the 3D visualizer, DO NOT combine BOND_BREAK and BOND_FORM in the same step or assume they happen simultaneously. Even for concerted reactions like SN2, you MUST separate them into sequential micro-steps. ALWAYS output BOND_BREAK steps before BOND_FORM steps, so atoms detach and move away before new atoms connect.
 `;
 function buildGroundedSystemPrompt(retrievedChunks) {
   if (!retrievedChunks || retrievedChunks.length === 0) {
