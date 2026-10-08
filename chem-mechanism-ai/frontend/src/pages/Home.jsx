@@ -66,7 +66,8 @@ function Home() {
     setQuizIdx(0);
     setUserAnswers({});
     try {
-      const response = await fetch('http://localhost:5001/api/reactions/analyze', {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+      const response = await fetch(`${apiUrl}/api/reactions/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reaction: q }),
