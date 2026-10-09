@@ -50,7 +50,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       const completion = await groq.chat.completions.create({
         model:  MODEL,
         temperature: attempts === 1 ? 0 : 0.15,
-        max_tokens: 8192,
+        max_tokens: 4000,
         messages,
       });
       let msg = completion.choices?.[0]?.message;
