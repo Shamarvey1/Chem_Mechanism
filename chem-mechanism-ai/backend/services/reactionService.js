@@ -15,18 +15,34 @@ const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
   }
 })();
 const analyzeReaction = async (reaction) => {
-  if (!process.env.GROQ_API_KEY) {
-    throw new Error('GROQ_API_KEY is not set in the environment variables.');
-  }
+
   if (!reaction || !reaction.trim()) {
     throw new Error('Reaction string is required and must not be empty.');
   }
-  const groq = new OpenAI({
-    apiKey:  process.env.GROQ_API_KEY,
-    baseURL: 'https://api.groq.com/openai/v1',
-  });
+  
   const classification = await classifyReaction(reaction);
   console.log(`[Router] "${reaction}" → ${classification.category} (${classification.explanation})`);
+
+  let routedApiKey = process.env.GROQ_API_KEY; 
+  if (classification.category === 'ORGANIC') {
+    routedApiKey = process.env.GROQ_API_KEY_ORGANIC || routedApiKey;
+  } else if (classification.category === 'COMBUSTION' || classification.category === 'COMBINATION') {
+    routedApiKey = process.env.GROQ_API_KEY_COMBUSTION || routedApiKey;
+  } else {
+    routedApiKey = process.env.GROQ_API_KEY_INORGANIC || routedApiKey;
+  }
+
+  if (!routedApiKey) {
+    throw new Error('No Groq API key configured. Please set GROQ_API_KEY in your .env file.');
+  }
+
+  const groq = new OpenAI({
+    apiKey:  routedApiKey,
+    baseURL: 'https://api.groq.com/openai/v1',
+  });
+
+  console.log(`[Router] Selected API Key Domain: ${classification.category === 'ORGANIC' ? 'ORGANIC' : (classification.category === 'COMBUSTION' || classification.category === 'COMBINATION' ? 'COMBUSTION' : 'INORGANIC')}`);
+
   const ragContext = await buildRagContext(reaction);
   console.log(`[RAG] Document context: ${ragContext.hasDocumentContext ? `✓ Found (score: ${ragContext.topScore.toFixed(3)}, chunks: ${ragContext.retrievedChunks.length})` : '✗ No match — using LLM knowledge only'}`);
   const userMessage = `Analyze and generate the full mechanism for this chemical reaction:
