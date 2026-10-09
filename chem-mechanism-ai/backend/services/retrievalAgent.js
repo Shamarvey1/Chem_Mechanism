@@ -1,7 +1,8 @@
 
 const { getDocumentIndex, generateEmbedding } = require('./documentIngestionAgent');
-const TOP_K           = 2;    
+const TOP_K           = 1;    
 const MIN_SCORE       = 0.35; 
+const MAX_CHUNK_CHARS = 1500; 
 function cosineSimilarity(vecA, vecB) {
   let dotProduct = 0;
   let normA = 0;
@@ -24,7 +25,7 @@ async function retrieve(query, topK = TOP_K) {
   const scored = index.map(chunk => ({
     id:      chunk.id,
     source:  chunk.source,
-    content: chunk.content,
+    content: chunk.content.slice(0, MAX_CHUNK_CHARS),
     score:   cosineSimilarity(queryEmbedding, chunk.embedding),
   }));
   const results = scored
