@@ -43,17 +43,29 @@ async function loadDocuments() {
     _documentIndex = [];
     return _documentIndex;
   }
-  const files = fs.readdirSync(DOCS_DIR).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
+  function getAllFiles(dirPath, arrayOfFiles) {
+    const files = fs.readdirSync(dirPath);
+    arrayOfFiles = arrayOfFiles || [];
+    files.forEach(function(file) {
+      if (fs.statSync(dirPath + "/" + file).isDirectory()) {
+        arrayOfFiles = getAllFiles(dirPath + "/" + file, arrayOfFiles);
+      } else {
+        arrayOfFiles.push(path.join(dirPath, "/", file));
+      }
+    });
+    return arrayOfFiles;
+  }
+  const files = getAllFiles(DOCS_DIR).filter(f => f.endsWith('.md') || f.endsWith('.txt'));
   if (files.length === 0) {
     console.warn('[DocumentIngestionAgent] No documents found in docs/ directory.');
     _documentIndex = [];
     return _documentIndex;
   }
   const allChunks = [];
-  for (const file of files) {
-    const filePath = path.join(DOCS_DIR, file);
+  for (const filePath of files) {
     const text     = fs.readFileSync(filePath, 'utf-8');
-    const chunks   = chunkDocument(text, file);
+    const fileName = path.basename(filePath);
+    const chunks   = chunkDocument(text, fileName);
     allChunks.push(...chunks);
   }
   console.log(`[DocumentIngestionAgent] Found ${allChunks.length} chunks. Generating vector embeddings... (this may take a moment)`);
