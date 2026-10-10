@@ -1,6 +1,5 @@
 const OpenAI = require('openai');
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
-// Classifier uses its own dedicated key so it NEVER competes with domain analysis keys
 const getClient = () => {
   const classifierKey = process.env.GROQ_API_KEY_CLASSIFIER
     || process.env.GROQ_API_KEY_INORGANIC

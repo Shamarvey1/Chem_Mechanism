@@ -12,7 +12,7 @@ const EXAMPLE_REACTIONS = [
   { label: 'Redox', formula: 'Fe + CuSO4', query: 'Fe + CuSO4 -> FeSO4 + Cu' },
 ];
 function Home() {
-  const [reaction, setReaction] = useState('CH3Br + OH- -> CH3OH + Br-');
+  const [reaction, setReaction] = useState('');
   const [loading, setLoading] = useState(false);
   const [reactionData, setReactionData] = useState(null);
   const [progress, setProgress] = useState(0);
@@ -50,9 +50,7 @@ function Home() {
     animId = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
-  useEffect(() => {
-    triggerAnalyze('CH3Br + OH- -> CH3OH + Br-');
-  }, []);
+
   const triggerAnalyze = async (queryToAnalyze) => {
     const q = (queryToAnalyze || reaction).trim();
     if (!q) {

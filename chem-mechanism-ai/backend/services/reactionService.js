@@ -20,7 +20,11 @@ const analyzeReaction = async (reaction) => {
     throw new Error('Reaction string is required and must not be empty.');
   }
   
-  const classification = await classifyReaction(reaction);
+
+  const [classification, ragContext] = await Promise.all([
+    classifyReaction(reaction),
+    buildRagContext(reaction),
+  ]);
   console.log(`[Router] "${reaction}" → ${classification.category} (${classification.explanation})`);
 
   let routedApiKey = process.env.GROQ_API_KEY; 
@@ -42,8 +46,6 @@ const analyzeReaction = async (reaction) => {
   });
 
   console.log(`[Router] Selected API Key Domain: ${classification.category === 'ORGANIC' ? 'ORGANIC' : (classification.category === 'COMBUSTION' || classification.category === 'COMBINATION' ? 'COMBUSTION' : 'INORGANIC')}`);
-
-  const ragContext = await buildRagContext(reaction);
   console.log(`[RAG] Document context: ${ragContext.hasDocumentContext ? `✓ Found (score: ${ragContext.topScore.toFixed(3)}, chunks: ${ragContext.retrievedChunks.length})` : '✗ No match — using LLM knowledge only'}`);
   const userMessage = `Analyze and generate the full mechanism for this chemical reaction:
 "${reaction}"
@@ -66,7 +68,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       const completion = await groq.chat.completions.create({
         model:  MODEL,
         temperature: attempts === 1 ? 0 : 0.15,
-        max_tokens: 3000,
+        max_tokens: 2500,
         messages,
       });
       let msg = completion.choices?.[0]?.message;
