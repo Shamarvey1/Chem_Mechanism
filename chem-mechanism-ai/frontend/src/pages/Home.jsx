@@ -118,7 +118,7 @@ function Home() {
     return action.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
   };
   const bondSummary = useMemo(() => {
-    if (!reactionData) return { broken: 'C–Br', formed: 'C–O', pathway: 'Walden Inversion / SN2' };
+    if (!reactionData) return { broken: '—', formed: '—', pathway: '—' };
     let broken = null;
     let formed = null;
     const initialGraph = buildInitialGraph(reactionData);

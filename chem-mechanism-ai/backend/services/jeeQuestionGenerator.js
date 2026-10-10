@@ -10,10 +10,13 @@ try {
 }
 let _client = null;
 const getClient = () => {
+  // JEE generator uses inorganic/classifier key to avoid competing with domain analysis keys
+  const jeeKey = process.env.GROQ_API_KEY_INORGANIC
+    || process.env.GROQ_API_KEY;
   if (!_client) {
     _client = new OpenAI({
       baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
-      apiKey: process.env.GROQ_API_KEY,
+      apiKey: jeeKey,
     });
   }
   return _client;

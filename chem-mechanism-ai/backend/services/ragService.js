@@ -78,6 +78,11 @@ ${SCHEMA_INSTRUCTION}`;
 function buildFallbackSystemPrompt() {
   return `You are an expert chemistry AI that generates precise 3D molecular mechanism visualizations.
 No specific document was found for this reaction. Use your chemistry knowledge to generate an accurate mechanism.
+IMPORTANT: If the input is a short reaction name or abbreviation (e.g. "e1", "sn2", "aldol", "grignard", "diels-alder"), you MUST:
+1. Identify the most common canonical example of that reaction
+2. Choose simple, real molecules (e.g. E1: tert-butyl bromide -> isobutylene + HBr)
+3. Define all atoms with unique IDs, then write the mechanism steps using those exact atom IDs
+Do NOT output placeholder atom IDs like "C?" or leave targets fields as undefined.
 ${SCHEMA_INSTRUCTION}`;
 }
 async function buildRagContext(query) {

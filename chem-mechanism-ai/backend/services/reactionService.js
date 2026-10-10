@@ -102,7 +102,9 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     console.warn(`[Agent: Critic] Attempt ${attempts} failed: ${validation.errors.join('; ')}`);
     reflectionLogs.push({ attempt: attempts, errors: validation.errors });
     if (attempts >= MAX_ATTEMPTS) {
-      throw new Error(`Mechanism validation failed after ${MAX_ATTEMPTS} attempts: ${validation.errors.join('; ')}`);
+      console.warn(`[Agent: Critic] Using best-effort result after ${MAX_ATTEMPTS} attempts. Errors: ${validation.errors.join('; ')}`);
+      parsed._validationWarnings = validation.errors;
+      break;
     }
 
     messages.push({ role: 'assistant', content: rawContent });
