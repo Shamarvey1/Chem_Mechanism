@@ -1,14 +1,14 @@
 const OpenAI = require('openai');
 const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
-let _client = null;
+// Classifier uses its own dedicated key so it NEVER competes with domain analysis keys
 const getClient = () => {
-  if (!_client) {
-    _client = new OpenAI({
-      baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
-      apiKey:  process.env.GROQ_API_KEY,
-    });
-  }
-  return _client;
+  const classifierKey = process.env.GROQ_API_KEY_CLASSIFIER
+    || process.env.GROQ_API_KEY_INORGANIC
+    || process.env.GROQ_API_KEY;
+  return new OpenAI({
+    baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+    apiKey:  classifierKey,
+  });
 };
 const CLASSIFIER_PROMPT = `Classify the given chemical reaction into exactly one category.
 The input can be a balanced equation, a reaction name, or a description.
