@@ -73,7 +73,14 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
     };
     if (action === 'BOND_BREAK') {
       const ref = targets?.bond || targets?.from_bond || targets?.bond_id || targets?.bond_broken;
-      const pred = matchBondRef(ref);
+      const pred = (b) => {
+        if (ref && matchBondRef(ref)(b)) return true;
+        if (targets?.atom1 && targets?.atom2) {
+          return (b.atom1 === targets.atom1 && b.atom2 === targets.atom2) ||
+                 (b.atom1 === targets.atom2 && b.atom2 === targets.atom1);
+        }
+        return false;
+      };
       if (isCurrent) bonds = bonds.map(b => pred(b) ? { ...b, status: 'breaking' } : b);
       else           bonds = bonds.filter(b => !pred(b));
     }
@@ -89,7 +96,26 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
         else bonds.push({ id: `${atom1}-${atom2}`, atom1, atom2, order, status: newStatus });
       }
     }
-    else if (action === 'NUCLEOPHILE_ATTACK' || action === 'RESONANCE') {
+    else if (action === 'NUCLEOPHILE_ATTACK') {
+      const { nucleophile_atom, electrophile_atom } = targets || {};
+      if (nucleophile_atom && electrophile_atom) {
+        const hasLaterBondForm = steps.some((st, idx) =>
+          idx > s && st.action === 'BOND_FORM' &&
+          ((st.targets?.atom1 === nucleophile_atom && st.targets?.atom2 === electrophile_atom) ||
+           (st.targets?.atom1 === electrophile_atom && st.targets?.atom2 === nucleophile_atom))
+        );
+        if (!hasLaterBondForm) {
+          const idx = bonds.findIndex(b =>
+            (b.atom1 === nucleophile_atom && b.atom2 === electrophile_atom) ||
+            (b.atom1 === electrophile_atom && b.atom2 === nucleophile_atom)
+          );
+          const newStatus = isCurrent ? 'forming' : undefined;
+          if (idx >= 0) bonds[idx] = { ...bonds[idx], status: newStatus };
+          else bonds.push({ id: `${nucleophile_atom}-${electrophile_atom}`, atom1: nucleophile_atom, atom2: electrophile_atom, order: 1, status: newStatus });
+        }
+      }
+    }
+    else if (action === 'RESONANCE') {
     }
     else if (action === 'BASE_ABSTRACTION') {
       const { base_atom, hydrogen_atom: H } = targets || {};
@@ -131,10 +157,27 @@ export function applyMechanismSteps(initialGraph, steps, currentStep) {
     }
     else if (action === 'ELECTRON_PAIR_MOVE') {
       const ref = targets?.from_bond || targets?.bond;
-      if (!ref) continue;
-      const pred = matchBondRef(ref);
-      if (isCurrent) bonds = bonds.map(b => pred(b) ? { ...b, status: 'breaking' } : b);
-      else           bonds = bonds.filter(b => !pred(b));
+      if (ref) {
+        const pred = matchBondRef(ref);
+        if (isCurrent) {
+          bonds = bonds.map(b => pred(b) ? { ...b, status: 'breaking' } : b);
+        } else {
+          bonds = bonds.map(b => {
+            if (pred(b)) {
+              return b.order > 1 ? { ...b, order: b.order - 1, status: undefined } : null;
+            }
+            return b;
+          }).filter(Boolean);
+        }
+      }
+      if (targets?.from_atom && targets?.to_atom && targets.from_atom !== targets.to_atom) {
+        const a1 = targets.from_atom, a2 = targets.to_atom;
+        const idx = bonds.findIndex(b => (b.atom1 === a1 && b.atom2 === a2) || (b.atom1 === a2 && b.atom2 === a1));
+        if (idx >= 0) {
+          if (isCurrent) bonds[idx] = { ...bonds[idx], status: 'forming' };
+          else bonds[idx] = { ...bonds[idx], order: Math.min(bonds[idx].order + 1, 3), status: undefined };
+        }
+      }
     }
     else if (action === 'ELECTROPHILE_ATTACK') {
       const { pi_atom1, pi_atom2 } = targets || {};

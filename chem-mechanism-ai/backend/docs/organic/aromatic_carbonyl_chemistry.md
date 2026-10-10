@@ -6,57 +6,36 @@ Source: LibreTexts Chemistry, OpenStax Organic Chemistry (Public Domain)
 ## Friedel-Crafts Alkylation of Benzene
 
 **Full Name:** Friedel-Crafts Alkylation
-**Also known as:** Electrophilic Aromatic Substitution (EAS) alkylation
-**Reaction equation:** C6H6 + CH3Cl -> C6H5CH3 + HCl (with AlCl3 catalyst)
+**Also known as:** Electrophilic Aromatic Substitution alkylation, EAS alkylation
+**Reaction equation:** C6H6 + CH3Cl -> C6H5CH3 + HCl
 
 ### Key Characteristics
-- Electrophilic Aromatic Substitution mechanism.
-- Requires a Lewis acid catalyst (like AlCl3, FeCl3) to generate the electrophile.
-- The electrophile is a carbocation (or a highly polarized complex).
-- Subject to carbocation rearrangements.
-- Polyalkylation can occur because the alkyl group activates the ring.
+- Electrophilic Aromatic Substitution (EAS) mechanism
+- Lewis acid generates methyl carbocation electrophile
+- Aromatic ring attacks the carbocation to form arenium ion (sigma complex), followed by deprotonation to restore aromaticity
 
-### Prototype: Benzene + Chloromethane
+### Prototype: Benzene + Chloromethane (Friedel-Crafts)
 Reaction name: Friedel-Crafts Alkylation of Benzene with Chloromethane
 Equation: C6H6 + CH3Cl -> C6H5CH3 + HCl
-Reactants: Benzene (C6H6), Chloromethane (CH3Cl), Aluminum chloride (AlCl3)
-Products: Toluene (C6H5CH3), Hydrogen chloride (HCl), Aluminum chloride (AlCl3)
+Reactants: Benzene (C6H6), Chloromethane (CH3Cl)
+Products: Toluene (C6H5CH3), Hydrogen chloride (HCl)
+Atoms in Benzene: C1 C2 C3 C4 C5 C6 (aromatic ring carbons), H1 H2 H3 H4 H5 H6 (ring hydrogens)
+Bonds in Benzene: bond-C1-C2 (order 2), bond-C2-C3 (order 1), bond-C3-C4 (order 2), bond-C4-C5 (order 1), bond-C5-C6 (order 2), bond-C6-C1 (order 1), bond-C1-H1 (order 1), bond-C2-H2, bond-C3-H3, bond-C4-H4, bond-C5-H5, bond-C6-H6
+Atoms in CH3Cl: C7 (methyl carbon), Cl1 (chlorine leaving group), H7 H8 H9 (hydrogens on C7)
+Bonds in CH3Cl: bond-C7-Cl1 (order 1), bond-C7-H7, bond-C7-H8, bond-C7-H9
 Mechanism steps:
-1. NUCLEOPHILE_ATTACK: nucleophile_atom=Cl1, electrophile_atom=Al1. The chlorine atom of chloromethane attacks the Lewis acid AlCl3 to form a polarized complex.
-2. BOND_BREAK: bond=bond-C1-Cl1. The C-Cl bond breaks heterolytically to generate a methyl carbocation (C1) and AlCl4-.
-3. NUCLEOPHILE_ATTACK: nucleophile_atom=C_ring, electrophile_atom=C1. The pi electrons of the benzene ring attack the methyl carbocation, forming a sigma complex (arenium ion).
-4. CHARGE_CHANGE: atom=C_ring_adj, new_charge=1. The adjacent carbon on the ring becomes a carbocation, breaking the aromaticity.
-5. PROTON_TRANSFER: hydrogen_atom=H_ring, from_atom=C_ring, to_atom=Cl2. A chloride ion from AlCl4- acts as a base and abstracts the proton from the sp3 carbon of the sigma complex.
-6. BOND_FORM: atom1=H_ring, atom2=Cl2, order=1. Formation of HCl.
-7. RESONANCE: from_atom=C_ring, to_atom=C_ring_adj. Electrons from the broken C-H bond flow back into the ring to restore aromaticity.
-
----
-
-## Aldol Condensation
-
-**Full Name:** Aldol Addition and Condensation
-**Also known as:** Aldol reaction
-**Reaction equation:** 2 CH3CHO -> CH3CH=CHCHO + H2O (with base catalyst and heat)
-
-### Key Characteristics
-- Involves aldehydes or ketones with at least one alpha-hydrogen.
-- Base-catalyzed (e.g., NaOH) or acid-catalyzed.
-- Forms a beta-hydroxy aldehyde/ketone (aldol) initially.
-- Dehydration (loss of water) often follows, especially with heat, to form an alpha,beta-unsaturated carbonyl compound.
-
-### Prototype: Acetaldehyde Aldol Condensation
-Reaction name: Base-catalyzed Aldol Condensation of Acetaldehyde
-Equation: 2 CH3CHO -> CH3CH=CHCHO + H2O
-Reactants: Acetaldehyde (CH3CHO) molecule 1, Acetaldehyde (CH3CHO) molecule 2, Hydroxide (OH-)
-Products: Crotonaldehyde (CH3CH=CHCHO), Water (H2O), Hydroxide (OH-)
-Mechanism steps:
-1. BASE_ABSTRACTION: base_atom=O_base, hydrogen_atom=H_alpha. The hydroxide ion abstracts an alpha-proton from acetaldehyde molecule 1.
-2. BOND_BREAK: bond=bond-C_alpha-H_alpha. The C-H bond breaks.
-3. ELECTRON_PAIR_MOVE: from_atom=C_alpha, to_atom=C_alpha. The alpha carbon becomes an enolate carbanion (resonance stabilized).
-4. NUCLEOPHILE_ATTACK: nucleophile_atom=C_alpha, electrophile_atom=C_carbonyl. The enolate attacks the carbonyl carbon of acetaldehyde molecule 2.
-5. BOND_FORM: atom1=C_alpha, atom2=C_carbonyl, order=1. A new carbon-carbon single bond is formed.
-6. ELECTRON_PAIR_MOVE: from_atom=C_carbonyl, to_atom=O_carbonyl. The pi electrons of the carbonyl group move to the oxygen, forming an alkoxide intermediate.
-7. PROTON_TRANSFER: hydrogen_atom=H_water, from_atom=O_water, to_atom=O_carbonyl. The alkoxide oxygen abstracts a proton from water to form the aldol (beta-hydroxy aldehyde).
-8. BASE_ABSTRACTION: base_atom=O_base, hydrogen_atom=H_alpha2. (Dehydration step) Hydroxide abstracts another alpha-proton.
-9. ELECTRON_PAIR_MOVE: from_atom=C_alpha, to_atom=C_carbonyl. Electrons form a pi bond between the alpha and beta carbons.
-10. BOND_BREAK: bond=bond-C_beta-O_beta. The hydroxide group on the beta carbon leaves, completing the elimination to form crotonaldehyde and water.
+1. BOND_BREAK: bond=bond-C7-Cl1. The C-Cl bond of chloromethane breaks heterolytically with Lewis acid assistance, forming a methyl carbocation.
+2. CHARGE_CHANGE: atom=C7, new_charge=1. Methyl carbon C7 becomes a carbocation (+1).
+3. CHARGE_CHANGE: atom=Cl1, new_charge=-1. Chloride ion departs (-1).
+4. ELECTROPHILE_ATTACK: electrophile_atom=C7, pi_atom1=C1, pi_atom2=C2. The aromatic pi bond attacks the methyl carbocation.
+5. BOND_BREAK: bond=bond-C1-C2. Ring C1=C2 double bond opens to single bond.
+6. BOND_FORM: atom1=C1, atom2=C2, order=1. C1-C2 becomes a single bond in the arenium ion.
+7. BOND_FORM: atom1=C1, atom2=C7, order=1. New carbon-carbon bond forms between benzene ring C1 and methyl group C7.
+8. CHARGE_CHANGE: atom=C7, new_charge=0. Methyl carbon becomes neutral.
+9. CHARGE_CHANGE: atom=C2, new_charge=1. Carbon C2 carries positive charge in resonance-stabilized arenium ion.
+10. BASE_ABSTRACTION: base_atom=Cl1, hydrogen_atom=H1. Chloride base abstracts proton H1 from sp3 carbon C1.
+11. BOND_BREAK: bond=bond-C1-H1. C1-H1 bond breaks.
+12. BOND_FORM: atom1=Cl1, atom2=H1, order=1. Hydrogen chloride (HCl) forms.
+13. CHARGE_CHANGE: atom=Cl1, new_charge=0. Chloride becomes neutral HCl.
+14. BOND_FORM: atom1=C1, atom2=C2, order=2. Carbon-carbon double bond reforms between C1 and C2, fully restoring ring aromaticity in toluene.
+15. CHARGE_CHANGE: atom=C2, new_charge=0. Ring carbon returns to neutral formal charge.

@@ -182,9 +182,21 @@ function compute3DLayoutForStep(atoms, bonds, initialBonds) {
 function getActiveAtomIds(activeStepData) {
   const ids = new Set();
   if (!activeStepData?.targets) return ids;
+  const t = activeStepData.targets;
   ['nucleophile_atom', 'electrophile_atom', 'base_atom', 'hydrogen_atom',
-    'atom', 'atom1', 'atom2', 'from_atom', 'to_atom', 'oxidized_atom', 'reduced_atom']
-    .forEach(f => { if (activeStepData.targets[f]) ids.add(activeStepData.targets[f]); });
+    'atom', 'atom1', 'atom2', 'from_atom', 'to_atom', 'oxidized_atom', 'reduced_atom',
+    'pi_atom1', 'pi_atom2', 'migrating_atom']
+    .forEach(f => { if (t[f]) ids.add(t[f]); });
+  ['bond', 'from_bond', 'bond_id', 'bond_broken'].forEach(f => {
+    const b = t[f];
+    if (typeof b === 'string') {
+      const parts = b.replace(/^bond-/, '').split('-');
+      if (parts.length === 2) {
+        ids.add(parts[0]);
+        ids.add(parts[1]);
+      }
+    }
+  });
   return ids;
 }
 function getArrowParams(activeStepData, positions) {
@@ -197,11 +209,26 @@ function getArrowParams(activeStepData, positions) {
   };
   switch (action) {
     case 'NUCLEOPHILE_ATTACK': return arrow(targets.nucleophile_atom, targets.electrophile_atom, '#a855f7');
+    case 'ELECTROPHILE_ATTACK': {
+      const piAtom = targets.pi_atom1 || targets.pi_atom2;
+      return arrow(targets.electrophile_atom, piAtom, '#38bdf8') || (piAtom ? arrow(piAtom, targets.electrophile_atom, '#38bdf8') : null);
+    }
     case 'BASE_ABSTRACTION': return arrow(targets.base_atom, targets.hydrogen_atom, '#10b981');
-    case 'ELECTRON_PAIR_MOVE': return targets.from_atom && targets.to_atom ? arrow(targets.from_atom, targets.to_atom, '#f59e0b') : null;
-    case 'PROTON_TRANSFER': return arrow(targets.hydrogen_atom, targets.to_atom, '#06b6d4');
+    case 'ELECTRON_PAIR_MOVE': {
+      if (targets.from_atom && targets.to_atom) return arrow(targets.from_atom, targets.to_atom, '#f59e0b');
+      const bRef = targets.from_bond || targets.bond;
+      if (bRef && targets.to_atom) {
+        const parts = bRef.replace(/^bond-/, '').split('-');
+        const fromA = parts[0] !== targets.to_atom ? parts[0] : parts[1];
+        if (fromA) return arrow(fromA, targets.to_atom, '#f59e0b');
+      }
+      return null;
+    }
+    case 'PROTON_TRANSFER': return arrow(targets.hydrogen_atom || targets.from_atom, targets.to_atom, '#06b6d4');
+    case 'REARRANGEMENT': return arrow(targets.migrating_atom, targets.to_atom, '#f59e0b');
     case 'RESONANCE': return arrow(targets.from_atom, targets.to_atom, '#ec4899');
     case 'OXIDATION_REDUCTION': return arrow(targets.reduced_atom, targets.oxidized_atom, '#818cf8');
+    case 'BOND_FORM': return arrow(targets.atom1, targets.atom2, '#10b981');
     default: return null;
   }
 }

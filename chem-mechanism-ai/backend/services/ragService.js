@@ -57,6 +57,7 @@ CRITICAL RULES:
 - All unused targets fields must be null (not omitted)
 - The "action" field must be exactly one of: NUCLEOPHILE_ATTACK, ELECTROPHILE_ATTACK, BASE_ABSTRACTION, BOND_BREAK, BOND_FORM, ELECTRON_PAIR_MOVE, PROTON_TRANSFER, CHARGE_CHANGE, REARRANGEMENT, RESONANCE, OXIDATION_REDUCTION
 - VISUALIZER RULE: To prevent visual glitches in the 3D visualizer, DO NOT combine BOND_BREAK and BOND_FORM in the same step or assume they happen simultaneously. Even for concerted reactions like SN2, you MUST separate them into sequential micro-steps. ALWAYS output BOND_BREAK steps before BOND_FORM steps, so atoms detach and move away before new atoms connect.
+- 3D STEP COMPLETENESS RULE: Never skip steps in the 3D mechanism. Every bond that breaks must have an explicit BOND_BREAK step. Every new bond formed MUST have an explicit BOND_FORM step with atom1, atom2, and order. After NUCLEOPHILE_ATTACK or ELECTROPHILE_ATTACK, ALWAYS include an explicit BOND_FORM step so the attacking atom connects in 3D. All product bonds must be formed by the end of the steps.
 `;
 function buildGroundedSystemPrompt(retrievedChunks) {
   if (!retrievedChunks || retrievedChunks.length === 0) {
