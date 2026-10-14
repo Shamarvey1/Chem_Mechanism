@@ -1,6 +1,6 @@
 const PUBCHEM_BASE = 'https://pubchem.ncbi.nlm.nih.gov/rest/pug';
 const FORMULA_CACHE = new Map();
-async function fetchWithTimeout(url, timeoutMs = 5000) {
+async function fetchWithTimeout(url, timeoutMs = 3000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

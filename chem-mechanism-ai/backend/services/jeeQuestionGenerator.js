@@ -117,7 +117,7 @@ function getFallbackJeeQuestions(reactionInput, category) {
 async function generateJeeQuestions(reactionInput, reactionData) {
   const category = reactionData?._category || reactionData?.reaction?.type || 'GENERAL';
   const bankMatches = findQuestionsFromBank(reactionInput, category, reactionData);
-  if (bankMatches && bankMatches.length >= 2) {
+  if (bankMatches && bankMatches.length >= 1) {
     console.log(`[JEE Bank] ⚡ Retrieved ${bankMatches.length} authentic JEE PYQ(s) from Question Bank for "${reactionInput}"`);
     return bankMatches;
   }
@@ -147,7 +147,7 @@ ${mechanismSummary || 'N/A'}`;
     const completion = await client.chat.completions.create({
       model: MODEL,
       temperature: 0.2,
-      max_completion_tokens: 3000,
+      max_completion_tokens: 1500,
       response_format: {
         type: 'json_schema',
         json_schema: {

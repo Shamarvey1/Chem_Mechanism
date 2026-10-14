@@ -56,7 +56,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     { role: 'system', content: ragContext.systemPrompt },
     { role: 'user',   content: userMessage },
   ];
-  const MAX_ATTEMPTS = 3;
+  const MAX_ATTEMPTS = 2;
   let parsed = null;
   let attempts = 0;
   const reflectionLogs = [];
@@ -68,7 +68,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       const completion = await groq.chat.completions.create({
         model:  MODEL,
         temperature: attempts === 1 ? 0 : 0.15,
-        max_tokens: 2500,
+        max_tokens: 1800,
         messages,
       });
       let msg = completion.choices?.[0]?.message;
@@ -115,7 +115,10 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
   }
   try {
     const [pubchemResult, jeeQuestions] = await Promise.all([
-      validateWithPubChem(parsed).catch(err => {
+      Promise.race([
+        validateWithPubChem(parsed),
+        new Promise(resolve => setTimeout(() => resolve({ warnings: ['PubChem timed out'], enrichments: {} }), 3000)),
+      ]).catch(err => {
         console.warn(`[PubChem] Error: ${err.message}`);
         return { warnings: ['PubChem lookup unavailable'], enrichments: {} };
       }),
