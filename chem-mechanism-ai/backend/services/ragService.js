@@ -66,7 +66,8 @@ function buildGroundedSystemPrompt(retrievedChunks) {
   const contextSection = retrievedChunks
     .map((chunk, i) => `--- CHEMISTRY DOCUMENT EXCERPT ${i + 1} (from: ${chunk.source}) ---\n${chunk.content}`)
     .join('\n\n');
-  return `You are an expert chemistry AI that generates precise 3D molecular mechanism visualizations.
+  return `/no_think
+You are an expert chemistry AI that generates precise 3D molecular mechanism visualizations.
 RETRIEVED CHEMISTRY KNOWLEDGE (from verified chemistry documents):
 ${contextSection}
 TASK: Using the chemistry document excerpts above as your PRIMARY SOURCE OF TRUTH, generate the mechanism JSON for the requested reaction. 
@@ -77,7 +78,8 @@ TASK: Using the chemistry document excerpts above as your PRIMARY SOURCE OF TRUT
 ${SCHEMA_INSTRUCTION}`;
 }
 function buildFallbackSystemPrompt() {
-  return `You are an expert chemistry AI that generates precise 3D molecular mechanism visualizations.
+  return `/no_think
+You are an expert chemistry AI that generates precise 3D molecular mechanism visualizations.
 No specific document was found for this reaction. Use your chemistry knowledge to generate an accurate mechanism.
 IMPORTANT: If the input is a short reaction name or abbreviation (e.g. "e1", "sn2", "aldol", "grignard", "diels-alder"), you MUST:
 1. Identify the most common canonical example of that reaction
