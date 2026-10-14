@@ -73,10 +73,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       });
       let msg = completion.choices?.[0]?.message;
       rawContent = msg?.content?.trim();
-      if (!rawContent && msg?.reasoning) {
-        rawContent = msg.reasoning.trim();
-      }
-      if (!rawContent) throw new Error('Groq returned an empty response (both content and reasoning were empty).');
+      if (!rawContent) throw new Error('Groq returned an empty response.');
     } catch (apiError) {
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }

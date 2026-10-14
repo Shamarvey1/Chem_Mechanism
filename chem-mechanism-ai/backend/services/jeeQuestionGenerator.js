@@ -163,9 +163,6 @@ ${mechanismSummary || 'N/A'}`;
     });
     let msg = completion.choices?.[0]?.message;
     let raw = msg?.content?.trim();
-    if (!raw && msg?.reasoning) {
-      raw = msg.reasoning.trim();
-    }
     if (!raw) {
       console.warn('[JEE Generator] Empty response from model, using bank fallbacks.');
       return getFallbackJeeQuestions(reactionInput, category);
