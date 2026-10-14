@@ -56,7 +56,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     { role: 'system', content: ragContext.systemPrompt },
     { role: 'user',   content: userMessage },
   ];
-  const MAX_ATTEMPTS = 2;
+  const MAX_ATTEMPTS = 3;
   let parsed = null;
   let attempts = 0;
   const reflectionLogs = [];
@@ -68,7 +68,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       const completion = await groq.chat.completions.create({
         model:  MODEL,
         temperature: attempts === 1 ? 0 : 0.15,
-        max_tokens: 1800,
+        max_tokens: 2500,
         messages,
       });
       let msg = completion.choices?.[0]?.message;
