@@ -1,5 +1,18 @@
 const OpenAI = require('openai');
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'qwen/qwen3.8-27b';
+const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'llama-3.1-8b-instant';
+
+function is429RateLimit(err) {
+  const msg = (err?.message || '').toLowerCase();
+  return (
+    err?.status === 429 ||
+    msg.includes('429') ||
+    msg.includes('rate_limit') ||
+    msg.includes('request too large') ||
+    msg.includes('otpm') ||
+    msg.includes('output tokens per minute')
+  );
+}
 const getClient = () => {
   const classifierKey = process.env.GROQ_API_KEY_CLASSIFIER
     || process.env.GROQ_API_KEY_INORGANIC
@@ -101,16 +114,31 @@ async function classifyReaction(reactionInput) {
   }
   // Slow path: LLM fallback for edge cases (rare)
   console.log(`[Classifier] No keyword match, falling back to LLM...`);
-  const completion = await getClient().chat.completions.create({
-    model: MODEL,
-    messages: [
-      { role: 'system', content: CLASSIFIER_PROMPT },
-      { role: 'user',   content: `Classify this reaction: "${reactionInput}". Return JSON only: {"category":"...","explanation":"..."}` },
-    ],
-    temperature: 0,
-    max_tokens: 80,
-  });
-  const rawContent = completion.choices[0].message.content.trim();
+  let rawContent;
+  for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+    try {
+      const completion = await getClient().chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: CLASSIFIER_PROMPT },
+          { role: 'user',   content: `Classify this reaction: "${reactionInput}". Return JSON only: {"category":"...","explanation":"..."}` },
+        ],
+        temperature: 0,
+        max_tokens: 80,
+      });
+      rawContent = completion.choices[0].message.content.trim();
+      if (model !== PRIMARY_MODEL) {
+        console.log(`[Classifier] ✓ Fallback model "${model}" succeeded.`);
+      }
+      break;
+    } catch (modelErr) {
+      if (is429RateLimit(modelErr) && model === PRIMARY_MODEL) {
+        console.warn(`[Classifier] ⚠ 429 on "${PRIMARY_MODEL}", switching to fallback "${FALLBACK_MODEL}"...`);
+        continue;
+      }
+      throw modelErr;
+    }
+  }
   const jsonMatch = rawContent.match(/```json\n([\s\S]*?)\n```/) || rawContent.match(/```\n([\s\S]*?)\n```/);
   const cleanContent = jsonMatch ? jsonMatch[1] : rawContent;
   return JSON.parse(cleanContent);

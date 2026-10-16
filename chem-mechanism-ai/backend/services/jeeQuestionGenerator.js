@@ -1,6 +1,19 @@
 const path = require('path');
 const OpenAI = require('openai');
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'qwen/qwen3.8-27b';
+const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'llama-3.1-8b-instant';
+
+function is429RateLimit(err) {
+  const msg = (err?.message || '').toLowerCase();
+  return (
+    err?.status === 429 ||
+    msg.includes('429') ||
+    msg.includes('rate_limit') ||
+    msg.includes('request too large') ||
+    msg.includes('otpm') ||
+    msg.includes('output tokens per minute')
+  );
+}
 let QUESTION_BANK = [];
 try {
   QUESTION_BANK = require(path.join(__dirname, '../data/jeeQuestionBank.json'));
@@ -144,23 +157,39 @@ Reactants: ${reactants || 'N/A'}
 Products: ${products || 'N/A'}
 Mechanism Steps:
 ${mechanismSummary || 'N/A'}`;
-    const completion = await client.chat.completions.create({
-      model: MODEL,
-      temperature: 0.2,
-      max_completion_tokens: 1500,
-      response_format: {
-        type: 'json_schema',
-        json_schema: {
-          name: 'jee_questions_schema',
-          strict: true,
-          schema: JEE_SCHEMA,
-        },
-      },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    });
+    // Try primary model first, fall back to FALLBACK_MODEL on 429
+    let completion;
+    for (const model of [PRIMARY_MODEL, FALLBACK_MODEL]) {
+      try {
+        completion = await client.chat.completions.create({
+          model,
+          temperature: 0.2,
+          max_completion_tokens: 1500,
+          response_format: {
+            type: 'json_schema',
+            json_schema: {
+              name: 'jee_questions_schema',
+              strict: true,
+              schema: JEE_SCHEMA,
+            },
+          },
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+        });
+        if (model !== PRIMARY_MODEL) {
+          console.log(`[JEE Generator] ✓ Fallback model "${model}" succeeded.`);
+        }
+        break; // success — exit the loop
+      } catch (modelErr) {
+        if (is429RateLimit(modelErr) && model === PRIMARY_MODEL) {
+          console.warn(`[JEE Generator] ⚠ 429 on "${PRIMARY_MODEL}", switching to fallback "${FALLBACK_MODEL}"...`);
+          continue;
+        }
+        throw modelErr; // non-429 or already on fallback — propagate
+      }
+    }
     let msg = completion.choices?.[0]?.message;
     let raw = msg?.content?.trim();
     if (!raw) {

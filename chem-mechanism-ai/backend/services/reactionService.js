@@ -6,7 +6,21 @@ const { validateWithPubChem } = require('./pubchemValidator');
 const { generateJeeQuestions } = require('./jeeQuestionGenerator');
 const { buildRagContext }    = require('./ragService');
 const { getDocumentIndex }   = require('./documentIngestionAgent');
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+const PRIMARY_MODEL  = process.env.GROQ_MODEL          || 'qwen/qwen3.8-27b';
+const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK  || 'llama-3.1-8b-instant';
+
+
+function is429RateLimit(err) {
+  const msg = (err?.message || '').toLowerCase();
+  return (
+    err?.status === 429 ||
+    msg.includes('429') ||
+    msg.includes('rate_limit') ||
+    msg.includes('request too large') ||
+    msg.includes('otpm') ||
+    msg.includes('output tokens per minute')
+  );
+}
 (async () => {
   try {
     await getDocumentIndex();
@@ -59,22 +73,30 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
   const MAX_ATTEMPTS = 3;
   let parsed = null;
   let attempts = 0;
+  let activeModel = PRIMARY_MODEL; // tracks which model is actually running
   const reflectionLogs = [];
   while (attempts < MAX_ATTEMPTS) {
     attempts++;
-    console.log(`[Agent: Specialist] Generating mechanism (Attempt ${attempts}/${MAX_ATTEMPTS})...`);
+    console.log(`[Agent: Specialist] Generating mechanism (Attempt ${attempts}/${MAX_ATTEMPTS}) with model: ${activeModel}`);
     let rawContent;
     try {
       const completion = await groq.chat.completions.create({
-        model:  MODEL,
+        model:       activeModel,
         temperature: attempts === 1 ? 0 : 0.15,
-        max_tokens: 2500,
+        max_tokens:  2500,
         messages,
       });
       let msg = completion.choices?.[0]?.message;
       rawContent = msg?.content?.trim();
       if (!rawContent) throw new Error('Groq returned an empty response.');
     } catch (apiError) {
+
+      if (is429RateLimit(apiError) && activeModel !== FALLBACK_MODEL) {
+        console.warn(`[Agent: Specialist] ⚠ 429 rate-limit on "${activeModel}". Switching to fallback model "${FALLBACK_MODEL}" and retrying...`);
+        activeModel = FALLBACK_MODEL;
+        attempts--; 
+        continue;
+      }
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }
     try {
@@ -154,6 +176,8 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     ragSources: ragContext.retrievedChunks.map(c => c.source),
     pubchemVerified: parsed._pubchem?.verified || false,
     jeeQuestionCount: parsed.jeeQuestions?.length || 0,
+    modelUsed: activeModel,
+    modelFallbackTriggered: activeModel !== PRIMARY_MODEL,
     timestamp: new Date().toISOString(),
   };
   return parsed;
