@@ -86,8 +86,28 @@ IMPORTANT: If the input is a short reaction name or abbreviation (e.g. "e1", "sn
 2. Choose simple, real molecules (e.g. E1: tert-butyl bromide -> isobutylene + HBr)
 3. Define all atoms with unique IDs, then write the mechanism steps using those exact atom IDs
 Do NOT output placeholder atom IDs like "C?" or leave targets fields as undefined.
+
+INORGANIC REACTIONS — EXTRA 3D RULES (Redox, Neutralization, Precipitation, Decomposition):
+For ALL inorganic ionic reactions follow this mandatory step ORDER to avoid 3D glitches:
+  a) BOND_BREAK all ionic bonds that must break FIRST (dissociation in aqueous solution) — before any redox or charge step.
+  b) OXIDATION_REDUCTION — only AFTER the relevant ionic bonds are broken and the ions are free.
+  c) CHARGE_CHANGE for EVERY atom whose formal charge changes — one step per atom, immediately after the redox event.
+  d) BOND_FORM for every new bond — one step per bond, AFTER all charges are settled.
+  NEVER combine BOND_BREAK and BOND_FORM in the same step.
+  NEVER do OXIDATION_REDUCTION before the ions are freed by BOND_BREAK.
+  NEVER skip CHARGE_CHANGE — if an atom changes charge, there must be an explicit CHARGE_CHANGE step.
+
+Example correct order for Fe + CuSO4 -> FeSO4 + Cu:
+  1. BOND_BREAK bond-Cu1-O1  (first Cu–O ionic bond breaks)
+  2. BOND_BREAK bond-Cu1-O2  (second Cu–O ionic bond breaks; Cu2+ is now free)
+  3. OXIDATION_REDUCTION oxidized_atom=Fe1, reduced_atom=Cu1
+  4. CHARGE_CHANGE atom=Fe1, new_charge=2
+  5. CHARGE_CHANGE atom=Cu1, new_charge=0
+  6. BOND_FORM atom1=Fe1, atom2=O1, order=1
+  7. BOND_FORM atom1=Fe1, atom2=O2, order=1
 ${SCHEMA_INSTRUCTION}`;
 }
+
 async function buildRagContext(query) {
   const retrievedChunks = await retrieve(query);
   const hasDocumentContext = retrievedChunks.length > 0;
