@@ -11,13 +11,11 @@ const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'qwen/qwen3.8-27b';
 const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b';
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1';
 
-// qwen/qwen3.8-27b on-demand OTPM limit = 1000 output tokens/min
-// We set max_tokens just below this so the API doesn't reject the request.
-// Fallback model uses a separate API key with its own OTPM budget → 2500 tokens.
+
 const PRIMARY_MAX_TOKENS  = 950;
 const FALLBACK_MAX_TOKENS = 2500;
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+
 
 function is429RateLimit(err) {
   const msg = (err?.message || '').toLowerCase();
@@ -31,13 +29,12 @@ function is429RateLimit(err) {
   );
 }
 
-// Qwen3 thinking model leaks <think>...</think> blocks into content — strip them
 function cleanModelOutput(text) {
   if (!text) return text;
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
-// /no_think is a Qwen-only directive — other models return empty when they see it
+
 function makePromptModelSafe(prompt, model) {
   if (!model.toLowerCase().includes('qwen')) {
     return prompt.replace(/^\/no_think\s*/i, '').trim();
@@ -45,34 +42,30 @@ function makePromptModelSafe(prompt, model) {
   return prompt;
 }
 
-// Robust JSON extraction: handles markdown fences, leading/trailing text, and
-// truncated JSON from models hitting their token limit.
+
 function extractJSON(text) {
   if (!text) return null;
 
-  // 1. Try direct parse first (cleanest case)
+
   try { return JSON.parse(text); } catch {}
 
-  // 2. Try stripping markdown code fences: ```json ... ``` or ``` ... ```
+
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenceMatch) {
     try { return JSON.parse(fenceMatch[1]); } catch {}
   }
 
-  // 3. Try finding the outermost JSON object (handles prose before/after)
+
   const start = text.indexOf('{');
   const end   = text.lastIndexOf('}');
   if (start !== -1 && end > start) {
     try { return JSON.parse(text.slice(start, end + 1)); } catch {}
   }
 
-  // 4. If the JSON appears truncated (no closing brace), it means the model
-  //    hit its token limit mid-output. Return null so the caller can switch
-  //    to the fallback model with a higher token budget.
   return null;
 }
 
-// Pre-warm document index at startup
+
 (async () => {
   try {
     await getDocumentIndex();
@@ -81,7 +74,6 @@ function extractJSON(text) {
   }
 })();
 
-// ── Main service ─────────────────────────────────────────────────────────────
 
 const analyzeReaction = async (reaction) => {
   if (!reaction || !reaction.trim()) {
@@ -94,7 +86,6 @@ const analyzeReaction = async (reaction) => {
   ]);
   console.log(`[Router] "${reaction}" → ${classification.category} (${classification.explanation})`);
 
-  // Route primary API key by reaction category
   let primaryApiKey = process.env.GROQ_API_KEY;
   if (classification.category === 'ORGANIC') {
     primaryApiKey = process.env.GROQ_API_KEY_ORGANIC || primaryApiKey;
@@ -108,8 +99,7 @@ const analyzeReaction = async (reaction) => {
     throw new Error('No Groq API key configured. Please set GROQ_API_KEY in your .env file.');
   }
 
-  // Fallback uses a DIFFERENT API key — separate OTPM budget so when the
-  // primary key is exhausted the fallback can still make requests.
+
   const allKeys = [
     process.env.GROQ_API_KEY_ORGANIC,
     process.env.GROQ_API_KEY_INORGANIC,
@@ -142,7 +132,7 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
     i === 0 ? { ...m, content: makePromptModelSafe(m.content, model) } : m
   );
 
-  // Helper: switch to fallback model + client
+
   const switchToFallback = (reason) => {
     console.warn(`[Agent: Specialist] ⚠ Switching to fallback "${FALLBACK_MODEL}" (separate key). Reason: ${reason}`);
     activeModel = FALLBACK_MODEL;
@@ -176,7 +166,6 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
 
       console.log(`[Agent: Specialist] finish_reason: ${finish} | content length: ${rawContent?.length || 0}`);
 
-      // Empty response → switch to fallback
       if (!rawContent) {
         if (activeModel !== FALLBACK_MODEL) {
           switchToFallback('empty response');
@@ -186,8 +175,6 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
         throw new Error('Both models returned empty responses. The API may be rate-limited — please try again in a moment.');
       }
 
-      // finish_reason=length means JSON was truncated by token limit
-      // → switch to fallback which has a 2500-token budget
       if (finish === 'length' && activeModel !== FALLBACK_MODEL) {
         switchToFallback(`response truncated at ${maxTok} tokens (finish_reason=length)`);
         attempts--;
@@ -203,14 +190,12 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }
 
-    // ── Robust JSON extraction ──────────────────────────────────────────────
     parsed = extractJSON(rawContent);
 
     if (!parsed) {
-      // Could not extract any JSON → response was truncated or garbled
+
       if (activeModel !== FALLBACK_MODEL) {
         switchToFallback('could not extract valid JSON from response (likely truncated)');
-        // Reset messages to original — don't carry corrupt content into fallback
         while (messages.length > 2) messages.pop();
         attempts--;
         continue;
@@ -218,7 +203,7 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
       if (attempts >= MAX_ATTEMPTS) {
         throw new Error('Model returned invalid JSON after all attempts. Please try a more specific reaction name.');
       }
-      // On fallback model, push corrective feedback and retry
+
       messages.push({ role: 'assistant', content: rawContent });
       messages.push({ role: 'user', content: 'Your response was not valid JSON. Return ONLY a raw JSON object starting with { and ending with }. No markdown fences. No explanation.' });
       continue;
@@ -226,7 +211,6 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
 
     parsed._category = classification.category;
 
-    // ── Mechanism validation ────────────────────────────────────────────────
     const validation = validateMechanism(parsed);
     if (validation.valid) {
       console.log(`[Agent: Critic] ✓ Valid on attempt ${attempts}${attempts > 1 ? ' (self-corrected)' : ''}.`);
@@ -249,7 +233,6 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
     });
   }
 
-  // ── Post-processing ─────────────────────────────────────────────────────
   try {
     const [pubchemResult, jeeQuestions] = await Promise.all([
       Promise.race([
