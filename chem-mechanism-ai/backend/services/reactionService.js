@@ -11,7 +11,7 @@ const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'qwen/qwen3.8-27b';
 const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b';
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1';
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 function is429RateLimit(err) {
   const msg = (err?.message || '').toLowerCase();
@@ -25,13 +25,13 @@ function is429RateLimit(err) {
   );
 }
 
-// Strip Qwen3 <think>...</think> blocks (thinking model leakage) from response
+
 function cleanModelOutput(text) {
   if (!text) return text;
   return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
 }
 
-// Remove Qwen-only /no_think directive — other models don't understand it and return empty
+
 function makePromptModelSafe(prompt, model) {
   if (!model.toLowerCase().includes('qwen')) {
     return prompt.replace(/^\/no_think\s*/i, '').trim();
@@ -39,7 +39,7 @@ function makePromptModelSafe(prompt, model) {
   return prompt;
 }
 
-// Pre-warm document index on startup
+
 (async () => {
   try {
     await getDocumentIndex();
@@ -48,7 +48,7 @@ function makePromptModelSafe(prompt, model) {
   }
 })();
 
-// ── Main service ───────────────────────────────────────────────────────────────
+
 
 const analyzeReaction = async (reaction) => {
   if (!reaction || !reaction.trim()) {
@@ -61,7 +61,7 @@ const analyzeReaction = async (reaction) => {
   ]);
   console.log(`[Router] "${reaction}" → ${classification.category} (${classification.explanation})`);
 
-  // ── Route primary API key by reaction category ─────────────────────────────
+
   let primaryApiKey = process.env.GROQ_API_KEY;
   if (classification.category === 'ORGANIC') {
     primaryApiKey = process.env.GROQ_API_KEY_ORGANIC || primaryApiKey;
@@ -75,9 +75,7 @@ const analyzeReaction = async (reaction) => {
     throw new Error('No Groq API key configured. Please set GROQ_API_KEY in your .env file.');
   }
 
-  // ── Fallback uses a DIFFERENT API key ──────────────────────────────────────
-  // When the primary key's OTPM budget is exhausted, the fallback uses a fresh
-  // key with its own rate-limit bucket so it isn't blocked too.
+
   const allKeys = [
     process.env.GROQ_API_KEY_ORGANIC,
     process.env.GROQ_API_KEY_INORGANIC,
@@ -107,7 +105,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     { role: 'user',   content: userMessage },
   ];
 
-  // Apply model-specific prompt safety per attempt
+
   const getSafeMessages = (model) => messages.map((m, i) =>
     i === 0 ? { ...m, content: makePromptModelSafe(m.content, model) } : m
   );
@@ -127,14 +125,13 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       const completion = await activeGroq.chat.completions.create({
         model:       activeModel,
         temperature: attempts === 1 ? 0 : 0.15,
-        // qwen/qwen3.8-27b on-demand OTPM limit = 1000 tokens/min; stay under it.
-        // Fallback model gets a larger budget from its separate key.
+
         max_tokens:  activeModel === PRIMARY_MODEL ? 1000 : 2500,
         messages:    getSafeMessages(activeModel),
       });
 
       const msg = completion.choices?.[0]?.message;
-      // Strip <think>...</think> blocks — Qwen3 thinking model may leak them
+
       rawContent = cleanModelOutput(msg?.content?.trim());
 
       if (!rawContent) {
@@ -149,7 +146,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       }
 
     } catch (apiError) {
-      // 429 / OTPM exhausted → switch to fallback with a different key
+
       if (is429RateLimit(apiError) && activeModel !== FALLBACK_MODEL) {
         console.warn(`[Agent: Specialist] ⚠ 429 on "${activeModel}" — switching to "${FALLBACK_MODEL}" with separate API key...`);
         activeModel = FALLBACK_MODEL;
@@ -160,7 +157,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }
 
-    // ── JSON parse ─────────────────────────────────────────────────────────────
+
     try {
       const jsonMatch = rawContent.match(/```json\n([\s\S]*?)\n```/) || rawContent.match(/```\n([\s\S]*?)\n```/);
       const cleanContent = jsonMatch ? jsonMatch[1] : rawContent;
@@ -176,7 +173,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
 
     parsed._category = classification.category;
 
-    // ── Mechanism validation ───────────────────────────────────────────────────
+ 
     const validation = validateMechanism(parsed);
     if (validation.valid) {
       console.log(`[Agent: Critic] ✓ Mechanism valid on attempt ${attempts}.${attempts > 1 ? ' (Self-corrected)' : ''}`);
@@ -196,7 +193,7 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
     });
   }
 
-  // ── Parallel post-processing ───────────────────────────────────────────────
+
   try {
     const [pubchemResult, jeeQuestions] = await Promise.all([
       Promise.race([
