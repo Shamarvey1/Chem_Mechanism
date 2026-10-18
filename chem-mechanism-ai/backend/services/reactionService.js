@@ -21,6 +21,19 @@ function is429RateLimit(err) {
     msg.includes('output tokens per minute')
   );
 }
+
+// Strip /no_think prefix — it's a Qwen-only directive; other models ignore or break on it
+function stripQwenDirectives(prompt) {
+  return prompt.replace(/^\/no_think\s*/i, '').trim();
+}
+
+// Make system prompt model-safe: remove Qwen-specific directives for non-Qwen models
+function makePromptModelSafe(prompt, model) {
+  if (!model.toLowerCase().includes('qwen')) {
+    return stripQwenDirectives(prompt);
+  }
+  return prompt;
+}
 (async () => {
   try {
     await getDocumentIndex();
@@ -75,6 +88,10 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
   let attempts = 0;
   let activeModel = PRIMARY_MODEL; // tracks which model is actually running
   const reflectionLogs = [];
+  // Build model-safe messages (strips Qwen-only /no_think for non-Qwen models)
+  const getSafeMessages = (model) => messages.map((m, i) =>
+    i === 0 ? { ...m, content: makePromptModelSafe(m.content, model) } : m
+  );
   while (attempts < MAX_ATTEMPTS) {
     attempts++;
     console.log(`[Agent: Specialist] Generating mechanism (Attempt ${attempts}/${MAX_ATTEMPTS}) with model: ${activeModel}`);
@@ -84,17 +101,26 @@ Return ONLY valid JSON. No markdown fences. No explanation outside JSON.`;
         model:       activeModel,
         temperature: attempts === 1 ? 0 : 0.15,
         max_tokens:  2500,
-        messages,
+        messages:    getSafeMessages(activeModel),
       });
       let msg = completion.choices?.[0]?.message;
       rawContent = msg?.content?.trim();
-      if (!rawContent) throw new Error('Groq returned an empty response.');
+      // ── Empty response: switch to fallback if available, else retry ────────
+      if (!rawContent) {
+        if (activeModel !== FALLBACK_MODEL) {
+          console.warn(`[Agent: Specialist] ⚠ Empty response from "${activeModel}" — switching to fallback "${FALLBACK_MODEL}"...`);
+          activeModel = FALLBACK_MODEL;
+          attempts--;
+          continue;
+        }
+        throw new Error('Groq returned an empty response from both primary and fallback models.');
+      }
     } catch (apiError) {
-
+      // ── 429 / OTPM rate-limit: switch to fallback ──────────────────────────
       if (is429RateLimit(apiError) && activeModel !== FALLBACK_MODEL) {
         console.warn(`[Agent: Specialist] ⚠ 429 rate-limit on "${activeModel}". Switching to fallback model "${FALLBACK_MODEL}" and retrying...`);
         activeModel = FALLBACK_MODEL;
-        attempts--; 
+        attempts--;
         continue;
       }
       throw new Error(`Groq API request failed: ${apiError.message}`);
