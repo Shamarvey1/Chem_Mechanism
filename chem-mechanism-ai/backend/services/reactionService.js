@@ -12,8 +12,11 @@ const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b';
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1';
 
 
-const PRIMARY_MAX_TOKENS  = 950;
-const FALLBACK_MAX_TOKENS = 2500;
+const PRIMARY_MAX_TOKENS  = 950;   // qwen OTPM limit = 1000; stay under it
+const FALLBACK_MAX_TOKENS = 2500;  // gpt-oss-20b on separate key — larger budget
+
+// Reaction categories that need many steps and should skip the 950-token primary model
+const HEAVY_CATEGORIES = new Set(['COMBUSTION', 'COMBINATION']);
 
 
 
@@ -46,23 +49,38 @@ function makePromptModelSafe(prompt, model) {
 function extractJSON(text) {
   if (!text) return null;
 
-
+  // 1. Direct parse (cleanest path)
   try { return JSON.parse(text); } catch {}
 
-
+  // 2. Strip markdown fences  ```json ... ``` or ``` ... ```
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenceMatch) {
     try { return JSON.parse(fenceMatch[1]); } catch {}
   }
 
-
+  // 3. Find outermost { ... } — handles prose before/after JSON
   const start = text.indexOf('{');
   const end   = text.lastIndexOf('}');
   if (start !== -1 && end > start) {
     try { return JSON.parse(text.slice(start, end + 1)); } catch {}
   }
 
+  // 4. JSON was truncated (token limit hit) — return null so caller can switch model
   return null;
+}
+
+// Check the parsed mechanism is complete — it must have both BOND_BREAK and BOND_FORM
+// steps. A truncated response may parse as valid JSON but only contain break steps,
+// meaning CO2/H2O never form in the 3D visualiser.
+function isCompleteMechanism(parsed) {
+  const steps = parsed?.steps;
+  if (!Array.isArray(steps) || steps.length === 0) return false;
+  const actions = steps.map(s => (s.action || '').toUpperCase());
+  const hasBreak = actions.some(a => a === 'BOND_BREAK');
+  const hasForm  = actions.some(a => a === 'BOND_FORM' || a === 'NUCLEOPHILE_ATTACK' || a === 'ELECTROPHILE_ATTACK');
+  // At minimum we need product-forming steps — without them the 3D scene never
+  // shows CO2, H2O, or any product molecule.
+  return hasBreak && hasForm;
 }
 
 
@@ -142,8 +160,13 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
   const MAX_ATTEMPTS = 3;
   let parsed      = null;
   let attempts    = 0;
-  let activeModel = PRIMARY_MODEL;
-  let activeGroq  = primaryGroq;
+  // COMBUSTION / COMBINATION mechanisms have 10-15 steps and need 2000+ tokens.
+  // Skip the 950-token primary model — start directly on the fallback with 2500 tokens.
+  let activeModel = HEAVY_CATEGORIES.has(classification.category) ? FALLBACK_MODEL : PRIMARY_MODEL;
+  let activeGroq  = HEAVY_CATEGORIES.has(classification.category) ? fallbackGroq  : primaryGroq;
+  if (activeModel === FALLBACK_MODEL) {
+    console.log(`[Router] Heavy category (${classification.category}) — using fallback model ${FALLBACK_MODEL} from start (${FALLBACK_MAX_TOKENS} tokens).`);
+  }
   const reflectionLogs = [];
 
   while (attempts < MAX_ATTEMPTS) {
@@ -193,9 +216,9 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
     parsed = extractJSON(rawContent);
 
     if (!parsed) {
-
+      // Could not extract JSON at all (truncated or garbled)
       if (activeModel !== FALLBACK_MODEL) {
-        switchToFallback('could not extract valid JSON from response (likely truncated)');
+        switchToFallback('could not extract valid JSON (truncated or garbled)');
         while (messages.length > 2) messages.pop();
         attempts--;
         continue;
@@ -203,10 +226,29 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
       if (attempts >= MAX_ATTEMPTS) {
         throw new Error('Model returned invalid JSON after all attempts. Please try a more specific reaction name.');
       }
-
       messages.push({ role: 'assistant', content: rawContent });
       messages.push({ role: 'user', content: 'Your response was not valid JSON. Return ONLY a raw JSON object starting with { and ending with }. No markdown fences. No explanation.' });
       continue;
+    }
+
+    // Check mechanism completeness — valid JSON but no product-forming steps means
+    // the model was cut off before BOND_FORM steps (CO2/H2O never appear in 3D).
+    if (!isCompleteMechanism(parsed)) {
+      console.warn(`[Agent: Specialist] ⚠ Mechanism has steps but is missing BOND_FORM — likely truncated. Steps: ${parsed?.steps?.length || 0}`);
+      if (activeModel !== FALLBACK_MODEL) {
+        switchToFallback(`incomplete mechanism (${parsed?.steps?.length || 0} steps, no BOND_FORM found)`);
+        while (messages.length > 2) messages.pop();
+        parsed = null;
+        attempts--;
+        continue;
+      }
+      // On fallback, push feedback and retry
+      if (attempts < MAX_ATTEMPTS) {
+        messages.push({ role: 'assistant', content: rawContent });
+        messages.push({ role: 'user', content: `[Critic] The mechanism is incomplete — it has ${parsed?.steps?.length || 0} steps but is missing BOND_FORM steps. Products like CO2 and H2O are never formed. You MUST include ALL steps including BOND_FORM steps that build the product molecules. Return the complete corrected JSON.` });
+        parsed = null;
+        continue;
+      }
     }
 
     parsed._category = classification.category;
