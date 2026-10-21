@@ -3,7 +3,7 @@ const { getDocumentIndex } = require('./documentIngestionAgent');
 
 const TOP_K           = 1;
 const MIN_SCORE       = 0.08;
-const MAX_CHUNK_CHARS = 1500;
+const MAX_CHUNK_CHARS = 12000;
 
 function tokenizeQuery(text) {
   return new Set(
@@ -37,7 +37,7 @@ async function retrieve(query, topK = TOP_K) {
   const scored = index.map(chunk => ({
     id:      chunk.id,
     source:  chunk.source,
-    content: chunk.content.slice(0, MAX_CHUNK_CHARS),
+    content: chunk.content ? chunk.content.slice(0, MAX_CHUNK_CHARS) : '',
     score:   keywordScore(queryTokens, chunk.tokens),
   }));
 

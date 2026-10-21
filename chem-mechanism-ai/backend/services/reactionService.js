@@ -1,4 +1,3 @@
-
 const OpenAI = require('openai');
 const { validateMechanism }   = require('./mechanismValidator');
 const { classifyReaction }    = require('./reactionClassifier');
@@ -7,18 +6,19 @@ const { generateJeeQuestions } = require('./jeeQuestionGenerator');
 const { buildRagContext }     = require('./ragService');
 const { getDocumentIndex }    = require('./documentIngestionAgent');
 
-const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'qwen/qwen3.8-27b';
-const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'openai/gpt-oss-20b';
+const PRIMARY_MODEL  = process.env.GROQ_MODEL         || 'openai/gpt-oss-20b';
+const FALLBACK_MODEL = process.env.GROQ_MODEL_FALLBACK || 'qwen/qwen3.8-27b';
 const GROQ_BASE_URL  = 'https://api.groq.com/openai/v1';
 
-
-const PRIMARY_MAX_TOKENS  = 950;   // qwen OTPM limit = 1000; stay under it
-const FALLBACK_MAX_TOKENS = 2500;  // gpt-oss-20b on separate key — larger budget
-
-// Reaction categories that need many steps and should skip the 950-token primary model
-const HEAVY_CATEGORIES = new Set(['COMBUSTION', 'COMBINATION']);
-
-
+function getModelMaxTokens(model) {
+  const m = (model || '').toLowerCase();
+  if (m.includes('qwen')) {
+    // qwen on-demand has a strict 1000 OTPM limit
+    return 950;
+  }
+  // gpt-oss-20b has an 8000 TPM limit
+  return 3500;
+}
 
 function is429RateLimit(err) {
   const msg = (err?.message || '').toLowerCase();
@@ -28,15 +28,21 @@ function is429RateLimit(err) {
     msg.includes('rate_limit') ||
     msg.includes('request too large') ||
     msg.includes('otpm') ||
-    msg.includes('output tokens per minute')
+    msg.includes('tpm') ||
+    msg.includes('tokens per minute')
   );
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function cleanModelOutput(text) {
   if (!text) return text;
-  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, '')
+    .trim();
 }
-
 
 function makePromptModelSafe(prompt, model) {
   if (!model.toLowerCase().includes('qwen')) {
@@ -45,14 +51,13 @@ function makePromptModelSafe(prompt, model) {
   return prompt;
 }
 
-
 function extractJSON(text) {
   if (!text) return null;
 
   // 1. Direct parse (cleanest path)
   try { return JSON.parse(text); } catch {}
 
-  // 2. Strip markdown fences  ```json ... ``` or ``` ... ```
+  // 2. Strip markdown fences ```json ... ``` or ``` ... ```
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
   if (fenceMatch) {
     try { return JSON.parse(fenceMatch[1]); } catch {}
@@ -65,24 +70,30 @@ function extractJSON(text) {
     try { return JSON.parse(text.slice(start, end + 1)); } catch {}
   }
 
-  // 4. JSON was truncated (token limit hit) — return null so caller can switch model
+  // 4. Trailing commas repair
+  if (start !== -1 && end > start) {
+    try {
+      const repaired = text.slice(start, end + 1).replace(/,\s*([}\]])/g, '$1');
+      return JSON.parse(repaired);
+    } catch {}
+  }
+
   return null;
 }
 
-// Check the parsed mechanism is complete — it must have both BOND_BREAK and BOND_FORM
-// steps. A truncated response may parse as valid JSON but only contain break steps,
-// meaning CO2/H2O never form in the 3D visualiser.
+// Check mechanism has both bond breaking/abstraction and bond forming steps
 function isCompleteMechanism(parsed) {
   const steps = parsed?.steps;
   if (!Array.isArray(steps) || steps.length === 0) return false;
   const actions = steps.map(s => (s.action || '').toUpperCase());
-  const hasBreak = actions.some(a => a === 'BOND_BREAK');
-  const hasForm  = actions.some(a => a === 'BOND_FORM' || a === 'NUCLEOPHILE_ATTACK' || a === 'ELECTROPHILE_ATTACK');
-  // At minimum we need product-forming steps — without them the 3D scene never
-  // shows CO2, H2O, or any product molecule.
+  const hasBreak = actions.some(a =>
+    a === 'BOND_BREAK' || a === 'BASE_ABSTRACTION' || a === 'OXIDATION_REDUCTION'
+  );
+  const hasForm = actions.some(a =>
+    a === 'BOND_FORM' || a === 'NUCLEOPHILE_ATTACK' || a === 'ELECTROPHILE_ATTACK'
+  );
   return hasBreak && hasForm;
 }
-
 
 (async () => {
   try {
@@ -91,7 +102,6 @@ function isCompleteMechanism(parsed) {
     console.warn('[ReactionService] Could not pre-warm document index:', e.message);
   }
 })();
-
 
 const analyzeReaction = async (reaction) => {
   if (!reaction || !reaction.trim()) {
@@ -117,13 +127,14 @@ const analyzeReaction = async (reaction) => {
     throw new Error('No Groq API key configured. Please set GROQ_API_KEY in your .env file.');
   }
 
-
   const allKeys = [
     process.env.GROQ_API_KEY_ORGANIC,
     process.env.GROQ_API_KEY_INORGANIC,
     process.env.GROQ_API_KEY_COMBUSTION,
     process.env.GROQ_API_KEY,
   ].filter(Boolean);
+
+  // Fallback key: pick an alternate key if possible to guarantee fresh TPM bucket
   const fallbackApiKey = allKeys.find(k => k !== primaryApiKey) || primaryApiKey;
 
   const primaryGroq  = new OpenAI({ apiKey: primaryApiKey,  baseURL: GROQ_BASE_URL });
@@ -131,7 +142,7 @@ const analyzeReaction = async (reaction) => {
 
   const domainLabel = classification.category === 'ORGANIC' ? 'ORGANIC'
     : (classification.category === 'COMBUSTION' || classification.category === 'COMBINATION' ? 'COMBUSTION' : 'INORGANIC');
-  console.log(`[Router] Domain: ${domainLabel} | Fallback key: ${fallbackApiKey === primaryApiKey ? 'same' : 'different ✓'}`);
+  console.log(`[Router] Domain: ${domainLabel} | Model: ${PRIMARY_MODEL} | Fallback key: ${fallbackApiKey === primaryApiKey ? 'same' : 'different ✓'}`);
   console.log(`[RAG] ${ragContext.hasDocumentContext
     ? `✓ Found (score: ${ragContext.topScore.toFixed(3)}, chunks: ${ragContext.retrievedChunks.length})`
     : '✗ No match — LLM knowledge only'}`);
@@ -141,15 +152,16 @@ const analyzeReaction = async (reaction) => {
 If this is a reaction name or abbreviation (e.g. "E2 elimination", "SN2", "Grignard"), identify specific real reactants first.
 Return ONLY valid JSON matching the schema. No markdown. No explanation outside the JSON object.`;
 
-  const messages = [
+  const baseMessages = [
     { role: 'system', content: ragContext.systemPrompt },
     { role: 'user',   content: userMessage },
   ];
 
-  const getSafeMessages = (model) => messages.map((m, i) =>
+  let messages = [...baseMessages];
+
+  const getSafeMessages = (model, msgs) => msgs.map((m, i) =>
     i === 0 ? { ...m, content: makePromptModelSafe(m.content, model) } : m
   );
-
 
   const switchToFallback = (reason) => {
     console.warn(`[Agent: Specialist] ⚠ Switching to fallback "${FALLBACK_MODEL}" (separate key). Reason: ${reason}`);
@@ -160,55 +172,72 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
   const MAX_ATTEMPTS = 3;
   let parsed      = null;
   let attempts    = 0;
-  // COMBUSTION / COMBINATION mechanisms have 10-15 steps and need 2000+ tokens.
-  // Skip the 950-token primary model — start directly on the fallback with 2500 tokens.
-  let activeModel = HEAVY_CATEGORIES.has(classification.category) ? FALLBACK_MODEL : PRIMARY_MODEL;
-  let activeGroq  = HEAVY_CATEGORIES.has(classification.category) ? fallbackGroq  : primaryGroq;
-  if (activeModel === FALLBACK_MODEL) {
-    console.log(`[Router] Heavy category (${classification.category}) — using fallback model ${FALLBACK_MODEL} from start (${FALLBACK_MAX_TOKENS} tokens).`);
-  }
+  let activeModel = PRIMARY_MODEL;
+  let activeGroq  = primaryGroq;
   const reflectionLogs = [];
 
   while (attempts < MAX_ATTEMPTS) {
     attempts++;
-    const maxTok = activeModel === PRIMARY_MODEL ? PRIMARY_MAX_TOKENS : FALLBACK_MAX_TOKENS;
+    const maxTok = getModelMaxTokens(activeModel);
     console.log(`[Agent: Specialist] Attempt ${attempts}/${MAX_ATTEMPTS} | model: ${activeModel} | max_tokens: ${maxTok}`);
 
     let rawContent;
     try {
-      const completion = await activeGroq.chat.completions.create({
+      const requestParams = {
         model:       activeModel,
         temperature: attempts === 1 ? 0 : 0.15,
         max_tokens:  maxTok,
-        messages:    getSafeMessages(activeModel),
-      });
+        messages:    getSafeMessages(activeModel, messages),
+      };
 
-      const msg      = completion.choices?.[0]?.message;
-      const finish   = completion.choices?.[0]?.finish_reason;
-      rawContent     = cleanModelOutput(msg?.content?.trim());
+      if (activeModel.toLowerCase().includes('gpt-oss')) {
+        // Enforce low reasoning effort so reasoning tokens do not consume JSON budget
+        requestParams.reasoning_effort = 'low';
+      }
+
+      const completion = await activeGroq.chat.completions.create(requestParams);
+      const msg        = completion.choices?.[0]?.message;
+      const finish     = completion.choices?.[0]?.finish_reason;
+      rawContent       = cleanModelOutput(msg?.content?.trim());
 
       console.log(`[Agent: Specialist] finish_reason: ${finish} | content length: ${rawContent?.length || 0}`);
 
       if (!rawContent) {
         if (activeModel !== FALLBACK_MODEL) {
           switchToFallback('empty response');
+          messages = [...baseMessages];
           attempts--;
           continue;
         }
         throw new Error('Both models returned empty responses. The API may be rate-limited — please try again in a moment.');
       }
 
-      if (finish === 'length' && activeModel !== FALLBACK_MODEL) {
-        switchToFallback(`response truncated at ${maxTok} tokens (finish_reason=length)`);
-        attempts--;
-        continue;
+      if (finish === 'length') {
+        if (activeModel !== FALLBACK_MODEL) {
+          switchToFallback(`response truncated at ${maxTok} tokens (finish_reason=length)`);
+          messages = [...baseMessages];
+          attempts--;
+          continue;
+        } else {
+          console.warn(`[Agent: Specialist] ⚠ Fallback hit token limit (${maxTok}). Retrying with concise prompt.`);
+        }
       }
 
     } catch (apiError) {
-      if (is429RateLimit(apiError) && activeModel !== FALLBACK_MODEL) {
-        switchToFallback(`429 rate-limit: ${apiError.message}`);
-        attempts--;
-        continue;
+      if (is429RateLimit(apiError)) {
+        if (activeModel !== FALLBACK_MODEL) {
+          console.warn(`[Agent: Specialist] ⚠ 429 on "${activeModel}" — waiting 2s and switching to fallback...`);
+          await sleep(2000);
+          switchToFallback(`429 rate-limit: ${apiError.message}`);
+          messages = [...baseMessages];
+          attempts--;
+          continue;
+        } else {
+          console.warn(`[Agent: Specialist] ⚠ 429 on fallback — waiting 3.5s for token reset...`);
+          await sleep(3500);
+          messages = [...baseMessages];
+          continue;
+        }
       }
       throw new Error(`Groq API request failed: ${apiError.message}`);
     }
@@ -216,36 +245,44 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
     parsed = extractJSON(rawContent);
 
     if (!parsed) {
-      // Could not extract JSON at all (truncated or garbled)
       if (activeModel !== FALLBACK_MODEL) {
         switchToFallback('could not extract valid JSON (truncated or garbled)');
-        while (messages.length > 2) messages.pop();
+        messages = [...baseMessages];
         attempts--;
         continue;
       }
       if (attempts >= MAX_ATTEMPTS) {
         throw new Error('Model returned invalid JSON after all attempts. Please try a more specific reaction name.');
       }
-      messages.push({ role: 'assistant', content: rawContent });
-      messages.push({ role: 'user', content: 'Your response was not valid JSON. Return ONLY a raw JSON object starting with { and ending with }. No markdown fences. No explanation.' });
+      // Reset messages to clean prompt instead of carrying broken truncated assistant text
+      messages = [
+        ...baseMessages,
+        {
+          role: 'user',
+          content: 'The previous response was not valid JSON. Return ONLY a single raw JSON object starting with { and ending with }. No markdown fences. Ensure all quotes and braces are properly closed.'
+        }
+      ];
       continue;
     }
 
-    // Check mechanism completeness — valid JSON but no product-forming steps means
-    // the model was cut off before BOND_FORM steps (CO2/H2O never appear in 3D).
+    // Check mechanism completeness: ensure both bond breaking and product bond forming steps exist
     if (!isCompleteMechanism(parsed)) {
-      console.warn(`[Agent: Specialist] ⚠ Mechanism has steps but is missing BOND_FORM — likely truncated. Steps: ${parsed?.steps?.length || 0}`);
+      console.warn(`[Agent: Specialist] ⚠ Mechanism has ${parsed?.steps?.length || 0} steps but is missing BOND_FORM or BOND_BREAK.`);
       if (activeModel !== FALLBACK_MODEL) {
-        switchToFallback(`incomplete mechanism (${parsed?.steps?.length || 0} steps, no BOND_FORM found)`);
-        while (messages.length > 2) messages.pop();
+        switchToFallback(`incomplete mechanism (${parsed?.steps?.length || 0} steps)`);
+        messages = [...baseMessages];
         parsed = null;
         attempts--;
         continue;
       }
-      // On fallback, push feedback and retry
       if (attempts < MAX_ATTEMPTS) {
-        messages.push({ role: 'assistant', content: rawContent });
-        messages.push({ role: 'user', content: `[Critic] The mechanism is incomplete — it has ${parsed?.steps?.length || 0} steps but is missing BOND_FORM steps. Products like CO2 and H2O are never formed. You MUST include ALL steps including BOND_FORM steps that build the product molecules. Return the complete corrected JSON.` });
+        messages = [
+          ...baseMessages,
+          {
+            role: 'user',
+            content: `[Critic] The mechanism is incomplete — it has ${parsed?.steps?.length || 0} steps but is missing product BOND_FORM steps. Products like CO2 and H2O must be formed by explicit BOND_FORM steps. You MUST include ALL steps from reactants to final products. Return complete corrected JSON.`
+          }
+        ];
         parsed = null;
         continue;
       }
@@ -268,11 +305,14 @@ Return ONLY valid JSON matching the schema. No markdown. No explanation outside 
       break;
     }
 
-    messages.push({ role: 'assistant', content: rawContent });
-    messages.push({
-      role: 'user',
-      content: `[Critic] Fix these errors:\n${validation.errors.map(e => `• ${e}`).join('\n')}\nEvery atom ID in steps.targets must exist in reactants. Return corrected JSON only.`,
-    });
+    messages = [
+      ...baseMessages,
+      { role: 'assistant', content: rawContent },
+      {
+        role: 'user',
+        content: `[Critic] Fix these errors:\n${validation.errors.map(e => `• ${e}`).join('\n')}\nEvery atom ID in steps.targets must exist in reactants. Return corrected JSON only.`,
+      }
+    ];
   }
 
   try {
